@@ -304,7 +304,7 @@
   <details class="card sec" id="weight">
     <summary><h2>Weigh-ins</h2><span class="peek" data-draw="pk-weight" data-source="weight-week">—</span></summary>
     <div class="sec-body">
-    <p class="note">Each dot is a morning weigh-in. The solid orange line is the 7-day average, which smooths out day-to-day water swings and is the number to judge progress by. The dashed line is your trainer's minimum pace, 2 lb a week from the first weigh-in: staying at or below it means you're on track.</p>
+    <p class="note">Each dot is a morning weigh-in. The solid orange line is the 7-day average, which smooths out day-to-day water swings and is the number to judge progress by. The dashed line is your trainer's target pace from the first weigh-in: staying at or below it means you're on track.</p>
     <div class="tiles mini">
       <div><p class="tile-label">7-day average</p><p class="tile-num"><span data-draw="wk-avg" data-source="weight-week" data-field="avg_lb">—</span><span class="unit">lb</span></p><p class="chg"><span data-draw="wk-avg-chg" data-source="weight-week" data-field="change_lb">—</span> vs. the 7 days before</p></div>
       <div><p class="tile-label">Start</p><p class="tile-num"><span data-draw="start" data-source="weight-stats" data-field="start_lb">—</span><span class="unit">lb</span></p></div>
@@ -402,7 +402,42 @@
     </div>
   </details>
 
-  
+  <details class="card sec" id="plan">
+    <summary><h2>Plan vs. actual</h2><span class="peek" data-draw="pk-plan" data-source="plan daily-food">—</span></summary>
+    <div class="sec-body">
+    <p class="note">The fixed daily plan, and how each day compares once it starts on <span data-draw="plan-start">—</span>. A positive difference means you ate more than the plan.</p>
+    <div class="scroll">
+      <table data-source="plan" data-row-key="order">
+        <thead><tr>
+          <th data-field="slot">When</th>
+          <th data-field="item">What</th>
+          <th data-field="calories" class="n">Calories</th>
+          <th data-field="protein_g" class="n">Protein (g)</th>
+          <th data-field="carbs_g" class="n hide-sm">Carbs (g)</th>
+          <th data-field="fat_g" class="n hide-sm">Fat (g)</th>
+        </tr></thead>
+        <tbody data-draw="plan-rows"></tbody>
+      </table>
+    </div>
+    <h3 class="ch-title" style="margin-top: var(--cds-gap-lg)">Each day against the plan</h3>
+    <div class="empty-msg plan-empty" hidden>Nothing to compare yet. Days from <span data-draw="plan-start-2">—</span> on will show here.</div>
+    <div class="scroll plan-body">
+      <table class="daytbl">
+        <colgroup><col class="c-meal"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"></colgroup>
+        <thead><tr>
+          <th>Day</th>
+          <th class="n">Calories</th>
+          <th class="n">vs. plan</th>
+          <th class="n">Protein (g)</th>
+          <th class="n">vs. plan</th>
+          <th class="n hide-sm">Carbs (g)</th>
+          <th class="n hide-sm">Fat (g)</th>
+        </tr></thead>
+        <tbody data-draw="plan-compare" data-source="plan daily-food"></tbody>
+      </table>
+    </div>
+    </div>
+  </details>
 
   <details class="card sec" id="cardio">
     <summary><h2>Cardio</h2><span class="peek" data-draw="pk-cardio" data-source="walk-totals">—</span></summary>
@@ -461,7 +496,13 @@
 
   
 
-  
+  <details class="card sec" id="meals">
+    <summary><h2>Meal orders by week</h2><span class="peek" data-draw="pk-meals" data-source="meal-menu">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Each week's order, labeled by the Monday it starts, oldest first. Per meal, from the Meal orders tab in your sheet. Past weeks stay on the page.</p>
+    <div class="daylog" data-draw="meals" data-source="meal-menu"></div>
+    </div>
+  </details>
 </div>
 
 </div>
@@ -531,7 +572,7 @@ window.__startPage = function () {
     const every = Math.max(1, Math.ceil((wMax + gap) / step));
     info.forEach((d, i) => { if ((info.length - 1 - i) % every !== 0) d.n.remove(); });
   }
-  const PACE = (Number((window.__CFG__ || {}).min_loss_lb_per_week) || 2) / 7; // lb per day, from the trainer's minimum weekly loss
+  const PACE = Number((window.__CFG__ || {}).min_loss_lb_per_week ?? 2) / 7; // lb per day, from the trainer's minimum weekly loss
   document.querySelectorAll('.legend .w').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
 
   dash.calc('weight-stats', {
@@ -1163,7 +1204,7 @@ window.__startPage = function () {
 
   // ---------- New sections: shared constants and helpers ----------
   const SLEEP_GOAL = Number((window.__CFG__ || {}).sleep_hr) || 7; // hours a night
-  const PLAN_START = '2026-11-16'; // first Monday of the new Chopped Up order
+  const PLAN_START = String((window.__CFG__ || {}).plan_start || (window.__CFG__ || {}).start_date || '2000-01-01'); // first day the meal plan applies
   const dayShort = (s) => d3.utcFormat('%b %-d')(new Date(s + 'T12:00:00Z'));
   const mkEl = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const numOrNull = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
@@ -1906,6 +1947,10 @@ window.__startPage = function () {
   window.__startShim();
   window.__startPage();
   window.__runAll();
+  if (window.parent !== window) {
+    const send = () => window.parent.postMessage({ type: 'tracker-height', h: document.documentElement.scrollHeight }, '*');
+    new ResizeObserver(send).observe(document.body); send();
+  }
 })();
 </script>
 </body>

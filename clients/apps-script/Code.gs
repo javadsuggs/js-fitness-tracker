@@ -36,8 +36,10 @@ var Q = {
   hunger: 'Hunger (1 to 5)',
   waist: 'Waist at navel (in)', hips: 'Hips (in)', chest: 'Chest (in)', shoulders: 'Shoulders (in)', neck: 'Neck (in)',
   armL: 'Left arm (in)', armR: 'Right arm (in)', thighL: 'Left thigh (in)', thighR: 'Right thigh (in)', calfL: 'Left calf (in)', calfR: 'Right calf (in)',
+  tapeTime: 'Time measured (for example 8:30 PM)',
   ibWeight: 'Scan weight (lb)', ibMuscle: 'Skeletal muscle (lb)', ibFat: 'Body fat mass (lb)', ibPct: 'Body fat (%)', ibVisc: 'Visceral fat level',
-  cardioMin: 'Cardio minutes', cardioWhat: 'Cardio type and notes', cardioCal: 'Calories burned (if your device shows it)',
+  ibArmR: 'Right arm muscle (% of ideal)', ibArmL: 'Left arm muscle (% of ideal)', ibTrunk: 'Trunk muscle (% of ideal)', ibLegR: 'Right leg muscle (% of ideal)', ibLegL: 'Left leg muscle (% of ideal)',
+  cardioMin: 'Cardio minutes', cardioWhat: 'Cardio type and notes', cardioIncline: 'Incline (%)', cardioSpeed: 'Speed (mph)', cardioCal: 'Calories burned (if your device shows it)',
   noteFrom: 'Note from', note: 'Note'
 };
 var TYPES = ['Weigh-in', 'Food', 'Workout', 'Sleep, water, energy', 'Measurements', 'InBody scan', 'Cardio', 'Trainer note'];
@@ -115,11 +117,12 @@ function buildForm() {
   form.addScaleItem().setTitle(Q.energy).setBounds(1, 5);
   form.addScaleItem().setTitle(Q.hunger).setBounds(1, 5);
   section('Measurements');
+  form.addTextItem().setTitle(Q.tapeTime);
   [Q.waist, Q.hips, Q.chest, Q.shoulders, Q.neck, Q.armL, Q.armR, Q.thighL, Q.thighR, Q.calfL, Q.calfR].forEach(function (t) { num(t); });
   section('InBody scan');
-  [Q.ibWeight, Q.ibMuscle, Q.ibFat, Q.ibPct, Q.ibVisc].forEach(function (t) { num(t); });
+  [Q.ibWeight, Q.ibMuscle, Q.ibFat, Q.ibPct, Q.ibVisc, Q.ibArmR, Q.ibArmL, Q.ibTrunk, Q.ibLegR, Q.ibLegL].forEach(function (t) { num(t); });
   section('Cardio');
-  num(Q.cardioMin).setRequired(true); form.addTextItem().setTitle(Q.cardioWhat); num(Q.cardioCal);
+  num(Q.cardioMin).setRequired(true); form.addTextItem().setTitle(Q.cardioWhat); num(Q.cardioIncline); num(Q.cardioSpeed); num(Q.cardioCal);
   section('Trainer note');
   form.addTextItem().setTitle(Q.noteFrom).setHelpText('Your name');
   form.addParagraphTextItem().setTitle(Q.note).setRequired(true);
@@ -172,12 +175,15 @@ function doGet() {
   var foodsSh = ss.getSheetByName('Foods');
   var foods = foodsSh ? foodsSh.getDataRange().getValues() : [];
   var tz = ss.getSpreadsheetTimeZone();
-  var feed = buildFeed(readSettings_(), values, foods, function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); });
+  var tab = function (n) { var sh = ss.getSheetByName(n); return sh && sh.getLastRow() > 1 ? sh.getDataRange().getValues() : null; };
+  var extra = { plan: tab('Plan'), meals: tab('Meal orders') };
+  var feed = buildFeed(readSettings_(), values, foods, function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); }, extra);
   return ContentService.createTextOutput(JSON.stringify(feed)).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** Pure function (no Google calls) so it can be tested anywhere. */
-function buildFeed(settings, values, foodRows, fmt) {
+function buildFeed(settings, values, foodRows, fmt, extra) {
+  extra = extra || {};
   var head = (values[0] || []).map(function (h) { return String(h).trim(); });
   var col = {};
   head.forEach(function (h, i) { col[h] = i; });
@@ -213,14 +219,14 @@ function buildFeed(settings, values, foodRows, fmt) {
       if (num(get(r, 'energy')) !== '') h.energy = num(get(r, 'energy'));
       if (num(get(r, 'hunger')) !== '') h.hunger = num(get(r, 'hunger'));
     } else if (type === 'Measurements') {
-      tape.push({ date: date, time: '', waist_in: num(get(r, 'waist')), hips_in: num(get(r, 'hips')), chest_in: num(get(r, 'chest')), shoulders_in: num(get(r, 'shoulders')),
+      tape.push({ date: date, time: String(get(r, 'tapeTime') || ''), waist_in: num(get(r, 'waist')), hips_in: num(get(r, 'hips')), chest_in: num(get(r, 'chest')), shoulders_in: num(get(r, 'shoulders')),
         neck_in: num(get(r, 'neck')), arm_l_in: num(get(r, 'armL')), arm_r_in: num(get(r, 'armR')), thigh_l_in: num(get(r, 'thighL')), thigh_r_in: num(get(r, 'thighR')),
         calf_l_in: num(get(r, 'calfL')), calf_r_in: num(get(r, 'calfR')) });
     } else if (type === 'InBody scan') {
       inbody.push({ date: date, machine: 'InBody', time: '', weight_lb: num(get(r, 'ibWeight')), muscle_lb: num(get(r, 'ibMuscle')), fat_mass_lb: num(get(r, 'ibFat')),
-        body_fat_pct: num(get(r, 'ibPct')), visceral_fat: num(get(r, 'ibVisc')), arm_r_pct: '', arm_l_pct: '', trunk_pct: '', leg_r_pct: '', leg_l_pct: '' });
+        body_fat_pct: num(get(r, 'ibPct')), visceral_fat: num(get(r, 'ibVisc')), arm_r_pct: num(get(r, 'ibArmR')), arm_l_pct: num(get(r, 'ibArmL')), trunk_pct: num(get(r, 'ibTrunk')), leg_r_pct: num(get(r, 'ibLegR')), leg_l_pct: num(get(r, 'ibLegL')) });
     } else if (type === 'Cardio') {
-      walks.push({ date: date, minutes: num(get(r, 'cardioMin')), incline_pct: '', speed_mph: '', est_calories: num(get(r, 'cardioCal')) });
+      walks.push({ date: date, minutes: num(get(r, 'cardioMin')), incline_pct: num(get(r, 'cardioIncline')), speed_mph: num(get(r, 'cardioSpeed')), est_calories: num(get(r, 'cardioCal')), notes: String(get(r, 'cardioWhat') || '') });
     } else if (type === 'Trainer note') {
       notes.push({ date: date, source: String(get(r, 'noteFrom') || 'Trainer'), note: String(get(r, 'note') || '') });
     }
@@ -240,14 +246,25 @@ function buildFeed(settings, values, foodRows, fmt) {
     'habits': csv(['date', 'sleep_hr', 'water_oz', 'energy', 'hunger'], habits),
     'tape': csv(['date', 'time', 'waist_in', 'hips_in', 'chest_in', 'shoulders_in', 'neck_in', 'arm_l_in', 'arm_r_in', 'thigh_l_in', 'thigh_r_in', 'calf_l_in', 'calf_r_in'], tape),
     'inbody': csv(['date', 'machine', 'time', 'weight_lb', 'muscle_lb', 'fat_mass_lb', 'body_fat_pct', 'visceral_fat', 'arm_r_pct', 'arm_l_pct', 'trunk_pct', 'leg_r_pct', 'leg_l_pct'], inbody),
-    'walks': csv(['date', 'minutes', 'incline_pct', 'speed_mph', 'est_calories'], walks),
+    'walks': csv(['date', 'minutes', 'incline_pct', 'speed_mph', 'est_calories', 'notes'], walks),
     'trainer-notes': csv(['date', 'source', 'note'], notes),
-    'photos': 'date,pose,src\n', 'plan': 'slot,item,calories,protein_g,carbs_g,fat_g\n', 'meal-menu': 'week_start,meal,qty\n'
+    'photos': 'date,pose,src\n',
+    'plan': tabCsv(extra.plan, ['order', 'slot', 'item', 'calories', 'protein_g', 'carbs_g', 'fat_g']),
+    'meal-menu': tabCsv(extra.meals, ['week_start', 'meal', 'qty', 'flavor', 'protein', 'carb', 'veggie', 'calories', 'protein_g', 'carbs_g', 'fat_g'])
   };
+  function tabCsv(vals, cols) {
+    if (!vals || vals.length < 2) return cols.join(',') + '\n';
+    var rows = vals.slice(1).filter(function (r) { return r.some(function (v) { return v !== '' && v != null; }); }).map(function (r, i) {
+      var o = {}; cols.forEach(function (c, j) { var v = r[j]; o[c] = v instanceof Date ? fmt(v) : v; });
+      if (cols[0] === 'order' && (o.order === '' || o.order == null)) o.order = i + 1;
+      return o;
+    });
+    return csv(cols, rows);
+  }
   var allDates = [].concat(weigh, food, lift, habits, tape, inbody, walks).map(function (x) { return x.date; }).sort();
   var w0 = weigh[0], w1 = weigh[weigh.length - 1];
   var publicSettings = {};
-  ['name', 'start_date', 'goal_weight_lb', 'calories', 'protein_g', 'sodium_mg', 'sleep_hr', 'min_loss_lb_per_week', 'visceral_goal', 'form_url'].forEach(function (k) {
+  ['name', 'trainer', 'goal_type', 'start_date', 'goal_weight_lb', 'calories', 'protein_g', 'sodium_mg', 'sleep_hr', 'min_loss_lb_per_week', 'visceral_goal', 'plan_start', 'form_url'].forEach(function (k) {
     if (settings[k] !== '' && settings[k] != null) publicSettings[k] = settings[k];
   });
   return {

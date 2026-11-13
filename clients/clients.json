@@ -1,1 +1,43 @@
-[]
+[
+ {
+  "slug": "javad",
+  "name": "Javad",
+  "trainer": "Elite Technique",
+  "feed": "feeds/javad.json"
+ },
+ {
+  "slug": "marcus",
+  "name": "Marcus T.",
+  "trainer": "Elite Technique",
+  "feed": "feeds/marcus.json",
+  "demo": true
+ },
+ {
+  "slug": "dana",
+  "name": "Dana R.",
+  "trainer": "Elite Technique",
+  "feed": "feeds/dana.json",
+  "demo": true
+ },
+ {
+  "slug": "kev",
+  "name": "Kev L.",
+  "trainer": "Elite Technique",
+  "feed": "feeds/kev.json",
+  "demo": true
+ },
+ {
+  "slug": "tasha",
+  "name": "Tasha M.",
+  "trainer": "Sample Trainer",
+  "feed": "feeds/tasha.json",
+  "demo": true
+ },
+ {
+  "slug": "chris",
+  "name": "Chris P.",
+  "trainer": "Sample Trainer",
+  "feed": "feeds/chris.json",
+  "demo": true
+ }
+]
