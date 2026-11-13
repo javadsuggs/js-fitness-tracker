@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Trainer Dashboard</title>
+<meta name="description" content="Client progress, goals and training logs in one place.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JS Fitness Tracker">
+<meta property="og:title" content="Trainer Dashboard">
+<meta property="og:description" content="Client progress, goals and training logs in one place.">
+<meta property="og:url" content="https://javadsuggs.github.io/js-fitness-tracker/trainer-dashboard/">
+<style>
+  :root { --bg: #121417; --panel: #1a1d21; --panel2: #16191d; --line: #2a2f35; --fg: #e8eaed; --muted: #9aa1a9; --ok: #4fd1a5; --warn: #f2c36b; --bad: #f07a8c; --blue: #6ea8ff; --orange: #f2a65a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14.5px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0; }
+  .sub { color: var(--muted); margin: 4px 0 18px; font-size: 13.5px; }
+  .pickers { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-bottom: 18px; }
+  .pickers label { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); min-width: 220px; flex: 1 1 220px; }
+  select { appearance: none; -webkit-appearance: none; width: 100%; padding: 10px 36px 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa1a9' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center; color: var(--fg); font-size: 15px; font-weight: 600; }
+  .demo { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #2a2f35; color: var(--warn); font-size: 11.5px; font-weight: 700; vertical-align: middle; }
+  h2 { font-size: 16px; margin: 22px 0 10px; }
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .grp { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .grp h3 { margin: 0 0 2px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .grp h3 .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .grp .n { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; }
+  .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
+  .kpi .l { color: var(--muted); font-size: 11.5px; }
+  .kpi .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi .v small { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 2px; }
+  .bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 4px; }
+  .bar > i { display: block; height: 100%; border-radius: 99px; }
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 12px; text-align: left; border-top: 1px solid var(--line); white-space: nowrap; }
+  thead th { border-top: none; color: var(--muted); font-size: 12px; font-weight: 600; }
+  td.n, th.n { text-align: right; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #20242a; }
+  tbody tr.sel { background: #22272e; }
+  .tag { padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: #2a2f35; }
+  .tag.cut { color: var(--blue); } .tag.bulk { color: var(--orange); } .tag.maintain { color: var(--muted); }
+  .flag { font-size: 12px; } .flag.ok { color: var(--ok); } .flag.warn { color: var(--warn); } .flag.bad { color: var(--bad); }
+  .viewer { margin-top: 22px; }
+  .viewer .hdr { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .viewer .hdr a { color: var(--blue); font-size: 13px; text-decoration: none; }
+  iframe { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-height: 600px; display: block; }
+  .empty { color: var(--muted); padding: 14px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+</head>
+<body>
+<main>
+  <h1>Trainer Dashboard</h1>
+  <p class="sub">Pick a trainer to see their clients. Pick a client to open their full tracker below.</p>
+
+  <div class="pickers">
+    <label>Trainer<select id="trainer"></select></label>
+    <label>Client<select id="client"><option value="">Choose a client…</option></select></label>
+  </div>
+
+  <h2>Client averages by goal</h2>
+  <div class="groups" id="groups"><div class="empty">Loading…</div></div>
+  <p class="note">Averages use each client's own targets. Progress to goal compares start weight, current weight and goal weight. Last 7 days covers calories, protein and logging.</p>
+
+  <h2>All clients</h2>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Client</th><th>Goal</th><th class="n">Start</th><th class="n">Now</th><th class="n">Goal wt</th><th class="n">Change</th><th class="n">Pace / wk</th><th class="n">To goal</th><th class="n">Protein (7 d)</th><th class="n">Workouts (7 d)</th><th>Last log</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="viewer" id="viewer" hidden>
+    <div class="hdr"><h2 id="viewer-title" style="margin:0"></h2><a id="viewer-open" target="_blank" rel="noopener">Open full page ↗</a></div>
+    <iframe id="frame" title="Client tracker"></iframe>
+  </div>
+</main>
+<script>
+(async function () {
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const GOALS = { cut: { label: 'Cutting', color: 'var(--blue)' }, bulk: { label: 'Bulking', color: 'var(--orange)' }, maintain: { label: 'Maintaining', color: 'var(--muted)' } };
+  const goalKey = (g) => { g = String(g || '').toLowerCase(); return g.startsWith('bulk') || g.startsWith('gain') ? 'bulk' : g.startsWith('main') ? 'maintain' : 'cut'; };
+  const fmt1 = d3.format('.1f'), fmt0 = d3.format(',.0f'), sign = (v) => (v > 0 ? '+' : '') + fmt1(v);
+  const day = 864e5;
+  const CLIENTS = '../clients/'; // client pages and feeds live in /clients/
+  const todayISO = d3.timeFormat('%Y-%m-%d')(new Date());
+
+  let clients = [];
+  try { clients = await (await fetch(CLIENTS + 'clients.json', { cache: 'no-store' })).json(); } catch (e) {}
+  if (!clients.length) { $('groups').innerHTML = '<div class="empty">No clients yet.</div>'; $('rows').innerHTML = ''; return; }
+
+  // Load every feed once, then compute each client's stats.
+  const stats = new Map();
+  await Promise.all(clients.map(async (c) => {
+    try {
+      const feedUrl = /^https?:/.test(c.feed) ? c.feed : CLIENTS + c.feed;
+      const f = await (await fetch(feedUrl + (feedUrl.includes('?') ? '&' : '?') + 't=' + Date.now())).json();
+      stats.set(c.slug, compute(c, f));
+    } catch (e) { stats.set(c.slug, { error: true }); }
+  }));
+
+  function compute(c, f) {
+    const s = f.settings || {}, D = f.data || {};
+    const parse = (k) => (D[k] ? d3.csvParse(D[k]) : []);
+    const w = parse('weigh-ins').map((r) => ({ date: r.date, lb: +r.weight_lb })).filter((r) => r.lb).sort((a, b) => d3.ascending(a.date, b.date));
+    const food = parse('food-log'), lift = parse('strength'), hab = parse('habits');
+    const start = w[0], now = w[w.length - 1];
+    const goal = +s.goal_weight_lb || null, gk = goalKey(s.goal_type || c.goal);
+    const change = start && now ? now.lb - start.lb : null;
+    const weeks = start && now ? Math.max(1 / 7, (Date.parse(now.date) - Date.parse(start.date)) / day / 7) : null;
+    const pace = change != null && weeks ? change / weeks : null;
+    let toGoal = null;
+    if (goal && start && now && goal !== start.lb) toGoal = Math.max(0, Math.min(1, (now.lb - start.lb) / (goal - start.lb)));
+    const since = d3.timeFormat('%Y-%m-%d')(new Date(Date.now() - 6 * day));
+    const byDay = d3.rollups(food.filter((r) => r.date >= since), (v) => ({ cal: d3.sum(v, (r) => +r.calories || 0), pro: d3.sum(v, (r) => +r.protein_g || 0) }), (r) => r.date);
+    const calAvg = byDay.length ? d3.mean(byDay, (d) => d[1].cal) : null;
+    const proAvg = byDay.length ? d3.mean(byDay, (d) => d[1].pro) : null;
+    const proT = +s.protein_g || null, calT = +s.calories || null;
+    const workouts = new Set(lift.filter((r) => r.date >= since).map((r) => r.date)).size;
+    const all = [...w.map((r) => r.date), ...food.map((r) => r.date), ...lift.map((r) => r.date), ...hab.map((r) => r.date)].filter(Boolean).sort();
+    const loggedDays = new Set(all.filter((d) => d >= since && d <= todayISO)).size;
+    return { name: c.name || s.name, trainer: s.trainer || c.trainer, gk, start, now, goal, change, pace, toGoal, calAvg, proAvg, proT, calT, workouts, loggedDays, last: all[all.length - 1] || null };
+  }
+
+  const trainers = [...new Set(clients.map((c) => c.trainer || 'Unassigned'))];
+  const tSel = $('trainer'), cSel = $('client');
+  for (const t of trainers) tSel.append(new Option(t, t));
+  if (params.get('t') && trainers.includes(params.get('t'))) tSel.value = params.get('t');
+
+  function render() {
+    const t = tSel.value;
+    const mine = clients.filter((c) => (c.trainer || 'Unassigned') === t);
+    // client dropdown, grouped by goal
+    cSel.innerHTML = '<option value="">Choose a client…</option>';
+    for (const gk of ['cut', 'bulk', 'maintain']) {
+      const list = mine.filter((c) => (stats.get(c.slug) || {}).gk === gk);
+      if (!list.length) continue;
+      const og = document.createElement('optgroup'); og.label = GOALS[gk].label;
+      for (const c of list) og.append(new Option(c.name + (c.demo ? ' (sample)' : ''), c.slug));
+      cSel.append(og);
+    }
+    // group cards
+    const g = $('groups'); g.innerHTML = '';
+    for (const gk of ['cut', 'bulk', 'maintain']) {
+      const list = mine.map((c) => stats.get(c.slug)).filter((x) => x && !x.error && x.gk === gk);
+      if (!list.length) continue;
+      const avg = (f) => { const v = list.map(f).filter((x) => x != null && isFinite(x)); return v.length ? d3.mean(v) : null; };
+      const card = document.createElement('div'); card.className = 'grp';
+      const prog = avg((x) => x.toGoal);
+      const proPct = avg((x) => (x.proAvg != null && x.proT ? x.proAvg / x.proT : null));
+      const calPct = avg((x) => (x.calAvg != null && x.calT ? x.calAvg / x.calT : null));
+      const k = (l, v, unit) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v == null ? '—' : v}${unit && v != null ? `<small>${unit}</small>` : ''}</div></div>`;
+      card.innerHTML = `<h3><span class="dot" style="background:${GOALS[gk].color}"></span>${GOALS[gk].label}</h3>
+        <p class="n">${list.length} client${list.length === 1 ? '' : 's'}</p>
+        <div class="kpis">
+          ${k('Avg change', avg((x) => x.change) == null ? null : sign(avg((x) => x.change)), 'lb')}
+          ${k('Avg pace', avg((x) => x.pace) == null ? null : sign(avg((x) => x.pace)), 'lb/wk')}
+          ${k('Avg to goal', prog == null ? null : Math.round(prog * 100), '%')}
+          ${k('Calories vs target', calPct == null ? null : Math.round(calPct * 100), '%')}
+          ${k('Protein vs target', proPct == null ? null : Math.round(proPct * 100), '%')}
+          ${k('Days logged (7 d)', avg((x) => x.loggedDays) == null ? null : fmt1(avg((x) => x.loggedDays)), 'of 7')}
+        </div>
+        <div class="bar" title="Average progress to goal"><i style="width:${Math.round((prog || 0) * 100)}%;background:${GOALS[gk].color}"></i></div>`;
+      g.append(card);
+    }
+    if (!g.children.length) g.innerHTML = '<div class="empty">No client data yet.</div>';
+    // table
+    const tb = $('rows'); tb.innerHTML = '';
+    const sorted = mine.slice().sort((a, b) => d3.ascending((stats.get(a.slug) || {}).gk, (stats.get(b.slug) || {}).gk) || d3.ascending(a.name, b.name));
+    for (const c of sorted) {
+      const x = stats.get(c.slug) || {};
+      const tr = document.createElement('tr'); tr.dataset.slug = c.slug;
+      if (x.error) { tr.innerHTML = `<td>${esc(c.name)}</td><td colspan="10" class="flag bad">Sheet not reachable</td>`; tb.append(tr); continue; }
+      const daysAgo = x.last ? Math.round((Date.parse(todayISO) - Date.parse(x.last)) / day) : null;
+      const flag = daysAgo == null ? '<span class="flag warn">No logs</span>' : daysAgo <= 0 ? '<span class="flag ok">Today</span>' : daysAgo === 1 ? '<span class="flag ok">Yesterday</span>' : `<span class="flag ${daysAgo > 3 ? 'bad' : 'warn'}">${daysAgo} days ago</span>`;
+      const good = (v, gk) => (v == null ? '' : (gk === 'bulk' ? v > 0 : v < 0) ? 'flag ok' : 'flag warn');
+      tr.innerHTML = `<td><b>${esc(x.name)}</b>${c.demo ? '<span class="demo">SAMPLE</span>' : ''}</td>
+        <td><span class="tag ${x.gk}">${GOALS[x.gk].label}</span></td>
+        <td class="n">${x.start ? fmt1(x.start.lb) : '—'}</td><td class="n">${x.now ? fmt1(x.now.lb) : '—'}</td><td class="n">${x.goal ? fmt1(x.goal) : '—'}</td>
+        <td class="n"><span class="${good(x.change, x.gk)}">${x.change == null ? '—' : sign(x.change)}</span></td>
+        <td class="n">${x.pace == null ? '—' : sign(x.pace)}</td>
+        <td class="n">${x.toGoal == null ? '—' : Math.round(x.toGoal * 100) + '%'}</td>
+        <td class="n">${x.proAvg == null ? '—' : fmt0(x.proAvg) + (x.proT ? ' / ' + fmt0(x.proT) : '') + ' g'}</td>
+        <td class="n">${x.workouts}</td><td>${flag}</td>`;
+      tr.addEventListener('click', () => { cSel.value = c.slug; open(c.slug); });
+      tb.append(tr);
+    }
+    const keep = params.get('c');
+    if (keep && mine.some((c) => c.slug === keep)) { cSel.value = keep; open(keep, true); } else { $('viewer').hidden = true; }
+  }
+
+  function open(slug, quiet) {
+    const c = clients.find((x) => x.slug === slug);
+    document.querySelectorAll('#rows tr').forEach((r) => r.classList.toggle('sel', r.dataset.slug === slug));
+    if (!c) { $('viewer').hidden = true; return; }
+    const url = CLIENTS + 'c.html?c=' + encodeURIComponent(slug);
+    $('viewer').hidden = false;
+    $('viewer-title').textContent = (stats.get(slug) || {}).name || c.name;
+    $('viewer-open').href = url;
+    if ($('frame').dataset.slug !== slug) { $('frame').src = url; $('frame').dataset.slug = slug; $('frame').style.height = '900px'; }
+    const p = new URLSearchParams(location.search); p.set('t', tSel.value); p.set('c', slug); history.replaceState(null, '', '?' + p);
+    if (!quiet) $('viewer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  window.addEventListener('message', (e) => { if (e.data && e.data.type === 'tracker-height') $('frame').style.height = Math.max(600, e.data.h + 4) + 'px'; });
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+  tSel.addEventListener('change', () => { const p = new URLSearchParams(); p.set('t', tSel.value); history.replaceState(null, '', '?' + p); params.delete('c'); render(); });
+  cSel.addEventListener('change', () => (cSel.value ? open(cSel.value) : ($('viewer').hidden = true)));
+  render();
+})();
+</script>
+</body>
+</html>
