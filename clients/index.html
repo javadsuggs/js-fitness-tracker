@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Client Trackers</title>
+<style>
+  :root { --bg: #121417; --panel: #1a1d21; --line: #2a2f35; --fg: #e8eaed; --muted: #9aa1a9; --ok: #4fd1a5; --warn: #f2c36b; --bad: #f07a8c; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .list { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  a.row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); color: inherit; text-decoration: none; flex-wrap: wrap; }
+  a.row:first-child { border-top: none; }
+  a.row:hover { background: #20242a; }
+  .name { font-weight: 700; flex: 1 0 auto; }
+  .stats { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+  .stats b { color: var(--fg); font-weight: 600; }
+  .flag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: #2a2f35; }
+  .flag.ok { color: var(--ok); } .flag.warn { color: var(--warn); }
+  .empty { padding: 16px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Client Trackers</h1>
+  <p class="sub">Tap a client to open their tracker. Each one updates live as they log.</p>
+  <div class="list" id="list"><div class="empty">Loading…</div></div>
+</main>
+<script>
+(async function () {
+  const list = document.getElementById('list');
+  let clients = [];
+  try { clients = await (await fetch('clients.json', { cache: 'no-store' })).json(); } catch (e) {}
+  list.innerHTML = '';
+  if (!clients.length) { list.innerHTML = '<div class="empty">No clients yet.</div>'; return; }
+  const day = 864e5, today = new Date(); today.setHours(0, 0, 0, 0);
+  for (const c of clients) {
+    const a = document.createElement('a'); a.className = 'row'; a.href = 'c.html?c=' + encodeURIComponent(c.slug);
+    const n = document.createElement('span'); n.className = 'name'; n.textContent = c.name; a.append(n);
+    const st = document.createElement('span'); st.className = 'stats'; st.textContent = 'Loading…'; a.append(st);
+    list.append(a);
+    fetch(c.feed + (c.feed.includes('?') ? '&' : '?') + 'summary=1&t=' + Date.now()).then((r) => r.json()).then((f) => {
+      const s = f.summary || {};
+      st.innerHTML = '';
+      const add = (label, val) => { const x = document.createElement('span'); x.innerHTML = label + ' <b></b>'; x.querySelector('b').textContent = val; st.append(x); };
+      if (s.latest_weight != null) add('Weight', s.latest_weight + ' lb');
+      if (s.change_lb != null) add('Change', (s.change_lb > 0 ? '+' : '') + s.change_lb + ' lb');
+      if (s.last_log) {
+        const days = Math.round((today - new Date(s.last_log + 'T00:00:00')) / day);
+        const fl = document.createElement('span'); fl.className = 'flag ' + (days <= 1 ? 'ok' : 'warn');
+        fl.textContent = days <= 0 ? 'Logged today' : days === 1 ? 'Logged yesterday' : 'Last log ' + days + ' days ago';
+        st.append(fl);
+      } else { const fl = document.createElement('span'); fl.className = 'flag warn'; fl.textContent = 'No logs yet'; st.append(fl); }
+    }).catch(() => { st.textContent = 'Sheet not reachable'; });
+  }
+})();
+</script>
+</body>
+</html>
