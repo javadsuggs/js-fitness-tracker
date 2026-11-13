@@ -2,41 +2,41 @@
  {
   "slug": "javad",
   "name": "Javad",
-  "trainer": "Elite Technique",
+  "trainer": "Quinlen",
   "feed": "feeds/javad.json"
  },
  {
   "slug": "marcus",
   "name": "Marcus T.",
-  "trainer": "Elite Technique",
+  "trainer": "Deon",
   "feed": "feeds/marcus.json",
   "demo": true
  },
  {
   "slug": "dana",
   "name": "Dana R.",
-  "trainer": "Elite Technique",
+  "trainer": "Deon",
   "feed": "feeds/dana.json",
   "demo": true
  },
  {
   "slug": "kev",
   "name": "Kev L.",
-  "trainer": "Elite Technique",
+  "trainer": "Deon",
   "feed": "feeds/kev.json",
   "demo": true
  },
  {
   "slug": "tasha",
   "name": "Tasha M.",
-  "trainer": "Sample Trainer",
+  "trainer": "Deon",
   "feed": "feeds/tasha.json",
   "demo": true
  },
  {
   "slug": "chris",
   "name": "Chris P.",
-  "trainer": "Sample Trainer",
+  "trainer": "Deon",
   "feed": "feeds/chris.json",
   "demo": true
  }
