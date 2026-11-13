@@ -1,0 +1,1804 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Javad's Fitness Tracker</title>
+<style>
+  :root {
+    --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-anthropic-serif: Georgia, "Times New Roman", serif;
+    --cds-font-size-caption: 12.5px; --cds-font-size-body: 14.5px; --cds-font-size-heading: 17px; --cds-font-size-title: 28px;
+    --cds-font-weight-medium: 600;
+    --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 20px; --cds-gap-xl: 32px;
+    --cds-pad-xs: 6px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 28px;
+    --cds-radius: 10px; --cds-dur-slow: 220ms;
+  }
+  html, body { margin: 0; background: #121417; }
+  #dash-root { max-width: 1100px; margin: 0 auto; }
+  .wt .snap { font-size: 12.5px; margin-top: 6px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<meta name="dash-one-writer">
+<style>
+  #dash-root { --dash-gutter: 0; }
+  .wt {
+    --color-bg: #121417; --color-panel: #1b1e23; --color-fg: #eceef1; --color-fg-muted: #9aa1ab;
+    --color-border-line: #2c3038; --color-ok: #5fd08a; --color-bad: #f07a6e; --color-warn: #e8b84f;
+    --cds-chart-grid: #262a31; --cds-chart-axis: #4a505a; --cds-chart-reference: #7b828d;
+    --cds-surface-popover: #23272d; --cds-border: #353a43; --cds-text-secondary: #9aa1ab;
+    --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45);
+    color-scheme: dark; background: var(--color-bg); color: var(--color-fg);
+    padding: clamp(16px, 3vw, 32px);
+    font-family: var(--font-anthropic-sans); display: grid; gap: var(--cds-gap-lg);
+  }
+  .wt h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+  .wt .lede { color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 0; font-size: var(--cds-font-size-body); }
+  .wt .lede b { font-weight: 600; color: var(--color-fg); }
+  .wt .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: var(--cds-gap-md); }
+  .wt .card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); }
+  .wt .tile-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+  .wt .tile-num { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; margin: var(--cds-gap-xs) 0 0; }
+  .wt .tile-num .unit { font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-left: 2px; }
+  .wt h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .wt .note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); }
+  .wt .chart { position: relative; min-height: 280px; }
+  .wt .tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+  .wt .tip .d { color: var(--cds-text-secondary); }
+  .wt .legend { display: flex; gap: var(--cds-gap-md); flex-wrap: wrap; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: var(--cds-gap-sm); }
+  .wt .legend > span::before { content: ""; display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--sw); vertical-align: middle; margin-right: 6px; }
+  .wt .legend .pace::before { border-top-style: dashed; }
+  .wt table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+  .wt th, .wt td { text-align: left; padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); }
+  .wt th { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); }
+  .wt td.n, .wt th.n { text-align: right; }
+  .wt .scroll { overflow-x: auto; }
+  .wt .tiles.mini { margin-bottom: var(--cds-gap-md); }
+  .wt .chg { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 0; font-variant-numeric: tabular-nums; }
+  .wt .legend .bar::before { border-top-width: 8px; width: 10px; }
+  .wt, .wt .daylog, .wt .wk { grid-template-columns: minmax(0, 1fr); }
+  .wt > *, .wt .sec-body, .wt .nut-grid > *, .wt .charts2 > *, .wt .daylog > *, .wt .wk > * { min-width: 0; }
+  .wt details.sec { padding: 0; }
+  .wt > details.sec { border-radius: 0; }
+  .wt > details.sec + details.sec { margin-top: calc(-1 * var(--cds-gap-lg)); border-top: none; }
+  .wt > details.sec:first-of-type { border-top-left-radius: var(--cds-radius); border-top-right-radius: var(--cds-radius); }
+  .wt > details.sec:last-of-type { border-bottom-left-radius: var(--cds-radius); border-bottom-right-radius: var(--cds-radius); }
+  .wt details.sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--cds-gap-md); padding: var(--cds-pad-lg); -webkit-tap-highlight-color: transparent; }
+  .wt details.sec > summary::-webkit-details-marker { display: none; }
+  .wt details.sec > summary h2 { flex: 1; min-width: 0; }
+  .wt details.sec > summary::after { content: ""; width: 9px; height: 9px; border-right: 2px solid var(--color-fg-muted); border-bottom: 2px solid var(--color-fg-muted); transform: rotate(45deg); flex: none; margin: 0 4px 4px 0; transition: transform var(--cds-dur-slow); }
+  .wt details.sec[open] > summary::after { transform: rotate(-135deg); margin: 4px 4px 0 0; }
+  .wt details.sec > summary .peek { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+  .wt details.sec > .sec-body { padding: 0 var(--cds-pad-lg) var(--cds-pad-lg); }
+  .wt details.sec > .sec-body > .note:first-child { margin-top: 0; }
+  .wt .chart.sm { min-height: 200px; }
+  .wt .bal { display: grid; gap: var(--cds-gap-sm); }
+  .wt .bal-row { display: grid; grid-template-columns: 6.5rem 1fr 3rem; align-items: center; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .wt .bal-track { position: relative; height: 10px; border-radius: 5px; background: var(--color-border-line); }
+  .wt .bal-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+  .wt .bal-ideal { position: absolute; top: -3px; bottom: -3px; border-left: 1.5px dashed var(--cds-chart-reference); }
+  .wt .photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+  .wt .photo-grid figure { margin: 0; }
+  .wt .photo-grid img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); display: block; }
+  .wt .photo-grid figcaption { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: 4px; text-align: center; }
+  @media (max-width: 560px) { .wt details.sec > summary, .wt details.sec > .sec-body { padding-left: var(--cds-pad-md); padding-right: var(--cds-pad-md); } .wt details.sec > summary { padding-top: var(--cds-pad-md); padding-bottom: var(--cds-pad-md); } }
+  .wt .glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cds-gap-sm); margin-top: var(--cds-gap-md); }
+  .wt .glance .g { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); min-width: 0; }
+  .wt .glance .tile-num { font-size: calc(var(--cds-font-size-title) * .8); white-space: nowrap; }
+  .wt .empty-msg { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); padding: var(--cds-pad-lg); border: 1px dashed var(--color-border-line); border-radius: var(--cds-radius); text-align: center; }
+  .wt .nut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-lg); }
+  .wt .sub { border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md); background: var(--color-bg); }
+  .wt .sub h3, .wt .ch-title { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-sm); }
+  .wt .meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-md); }
+  .wt .meter-bar { height: 6px; border-radius: 3px; background: var(--color-border-line); margin-top: var(--cds-gap-xs); overflow: hidden; }
+  .wt .meter-bar > i { display: block; height: 100%; border-radius: 3px; }
+  .wt .split { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--color-border-line); margin-top: var(--cds-gap-xs); }
+  .wt .split > i { display: block; height: 100%; }
+  .wt .charts2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--cds-gap-lg); }
+  .wt .charts2 .chart { min-height: 220px; }
+  .wt .daylog { display: grid; gap: var(--cds-gap-lg); min-height: 120px; }
+  .wt .wk { display: grid; gap: var(--cds-gap-md); }
+  .wt .wk-head { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+  .wt details.day { border: 1px solid var(--color-border-line); border-radius: 0; background: var(--color-bg); margin-top: calc(-1 * var(--cds-gap-md)); }
+  .wt .wk-head + details.day, .wt .wk > details.day:first-child { margin-top: 0; }
+  .wt details.day:first-of-type { border-top-left-radius: var(--cds-radius); border-top-right-radius: var(--cds-radius); }
+  .wt details.day:last-of-type { border-bottom-left-radius: var(--cds-radius); border-bottom-right-radius: var(--cds-radius); }
+  .wt details.day + details.day { border-top: none; }
+  .wt details.day > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: var(--cds-gap-md); padding: var(--cds-pad-sm) var(--cds-pad-md); font-variant-numeric: tabular-nums; }
+  .wt details.day > summary::-webkit-details-marker { display: none; }
+  .wt details.day > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--color-fg-muted); border-bottom: 2px solid var(--color-fg-muted); transform: rotate(-45deg); flex: none; margin-right: 2px; transition: transform var(--cds-dur-slow); }
+  .wt details.day[open] > summary::before { transform: rotate(45deg); }
+  .wt details.day > summary .sum-day { font-weight: var(--cds-font-weight-medium); flex: 1; }
+  .wt details.day > summary .sum-stats { display: flex; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); }
+  .wt details.day > .scroll { padding: 0 var(--cds-pad-md) var(--cds-pad-sm); }
+  .wt .day h4 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-xs); }
+  .wt table.daytbl { table-layout: fixed; min-width: 620px; }
+  .wt .daytbl col.c-meal { width: 14%; }
+  .wt .daytbl col.c-what { width: auto; }
+  .wt .daytbl col.c-num { width: 12%; }
+  .wt .daytbl col.c-ex { width: 22%; }
+  .wt .daytbl td.cmt { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .wt .daytbl td { overflow-wrap: anywhere; }
+  .wt tr.total td { font-weight: 600; border-top: 1px solid var(--color-fg-muted); border-bottom: none; }
+  .wt .wk-total { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-lg); padding: var(--cds-pad-sm) var(--cds-pad-md); border-radius: var(--cds-radius); background: var(--color-bg); border: 1px solid var(--color-border-line); font-variant-numeric: tabular-nums; }
+  .wt .wk-total b { font-weight: 600; }
+  .wt .wk-total .lbl { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); display: block; }
+  @media (max-width: 560px) { .wt .hide-sm { display: none; } }
+  [data-dash-source-state=empty] { color: transparent; }
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+  .tapetbl { min-width: 760px; }
+  .wt .chart.trends { min-height: 380px; }
+  .wt .legend.tog > span { cursor: pointer; user-select: none; padding: 4px 0; }
+  .wt .legend.tog > span.off { opacity: .35; text-decoration: line-through; }
+  .wt .legend.tog > span.thick::before { border-top-width: 4px; }
+  .wt .legend.tog > span.tri::before { width: 0; border-top: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 9px solid var(--sw); }
+</style>
+
+<div class="wt">
+  <header>
+    <h1>Javad's Fitness Tracker</h1>
+    <p class="lede">Building muscle comes first, losing fat second. Skeletal muscle is <b data-draw="lede-muscle" data-source="inbody-latest" data-field="muscle_lb">—</b> lb on the latest scan, and weight has changed <b data-draw="lede-change" data-source="weight-stats" data-field="change_lb">—</b> lb since starting with the trainer on Nov 2.</p>
+    <div class="glance">
+      <div class="g"><p class="tile-label">Protein today</p><p class="tile-num"><span data-draw="gl-pro" data-source="daily-food">—</span><span class="unit">of <span data-draw="gl-pro-t">—</span> g</span></p><p class="chg"><span data-draw="gl-pro-left" data-source="daily-food">—</span></p></div>
+      <div class="g"><p class="tile-label">Calories today</p><p class="tile-num"><span data-draw="gl-cal" data-source="daily-food">—</span></p><p class="chg"><span data-draw="gl-cal-left" data-source="daily-food">—</span></p></div>
+      <div class="g"><p class="tile-label">7-day avg weight</p><p class="tile-num"><span data-draw="gl-avg" data-source="weight-week" data-field="avg_lb">—</span><span class="unit">lb</span></p><p class="chg">Last: <span data-draw="gl-last" data-source="weigh-ins">—</span></p></div>
+    </div>
+  </header>
+
+  <details class="card sec" id="trends" open>
+    <summary><h2>All trends</h2><span class="peek">Everything on one chart</span></summary>
+    <div class="sec-body">
+    <p class="note">Everything on one chart. The colored lines show each day as a percent of its target, so the dashed 100% line is "hit the target" for all of them. The thick white line is your 7-day average weight, read on the right side in pounds. Triangles along the bottom are training days. Tap a day to see its real numbers, and tap a name below the chart to hide or show that line. Hollow sodium dots are days where some foods had no label, so the real number is higher.</p>
+    <div class="chart trends" data-draw="trends-chart" data-source="weigh-ins weight-avg daily-food habits strength walks"></div>
+    </div>
+  </details>
+
+  <details class="card sec" id="inbody">
+    <summary><h2>InBody scans</h2><span class="peek" data-draw="pk-inbody" data-source="inbody-latest">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Monthly scans at OneLife. Change is from the scan before. Scans on different machines or at different times of day can differ by 1 to 3 lb from water alone.</p>
+    <div class="tiles mini">
+      <div><p class="tile-label">Skeletal muscle</p><p class="tile-num"><span data-draw="ib-mm" data-source="inbody-latest" data-field="muscle_lb">—</span><span class="unit">lb</span></p><p class="chg"><span data-draw="ib-mm-chg" data-source="inbody-latest" data-field="muscle_change">—</span> vs. last scan</p></div>
+      <div><p class="tile-label">Fat mass</p><p class="tile-num"><span data-draw="ib-fm" data-source="inbody-latest" data-field="fat_mass_lb">—</span><span class="unit">lb</span></p><p class="chg"><span data-draw="ib-fm-chg" data-source="inbody-latest" data-field="fat_mass_change">—</span> vs. last scan</p></div>
+      <div><p class="tile-label">Body fat</p><p class="tile-num"><span data-draw="ib-bf" data-source="inbody-latest" data-field="body_fat_pct">—</span><span class="unit">%</span></p><p class="chg"><span data-draw="ib-bf-chg" data-source="inbody-latest" data-field="body_fat_change">—</span> vs. last scan</p></div>
+      <div><p class="tile-label">Visceral fat level</p><p class="tile-num"><span data-draw="ib-vf" data-source="inbody-latest" data-field="visceral_fat">—</span></p><p class="chg">Goal: under <span data-draw="visc-goal">—</span></p></div>
+    </div>
+    <div class="chart" data-draw="ib-chart" data-source="inbody"></div>
+    <div class="legend"><span class="ib-m">Skeletal muscle</span><span class="ib-f">Fat mass</span></div>
+    <div class="scroll" style="margin-top: var(--cds-gap-md)">
+      <table data-source="inbody" data-row-key="date">
+        <thead><tr>
+          <th data-field="date">Day</th>
+          <th data-field="machine" class="hide-sm">Machine</th>
+          <th data-field="time" class="hide-sm">Time</th>
+          <th data-field="weight_lb" class="n">Weight (lb)</th>
+          <th data-field="muscle_lb" class="n">Muscle (lb)</th>
+          <th data-field="fat_mass_lb" class="n">Fat mass (lb)</th>
+          <th data-field="body_fat_pct" class="n">Body fat (%)</th>
+          <th data-field="visceral_fat" class="n">Visceral</th>
+        </tr></thead>
+        <tbody data-draw="ib-rows"></tbody>
+      </table>
+    </div>
+
+    <h3 class="ch-title" style="margin-top: var(--cds-gap-lg)">Muscle balance</h3>
+    <p class="note">Lean muscle in each arm, the trunk and each leg as a percent of the scan's ideal, from the latest scan that has it. The dashed line is 100%.</p>
+    <div class="empty-msg bal-empty" hidden>Not on file yet. Send a photo of your next InBody sheet (or a past one) and the arm, trunk and leg numbers will show here.</div>
+    <div class="bal" data-draw="ib-balance" data-source="inbody"></div>
+    </div>
+  </details>
+
+  <details class="card sec" id="strength">
+    <summary><h2>Strength log</h2><span class="peek" data-draw="pk-strength" data-source="strength">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Lifts from your Elite Technique sessions, with the reps your trainer assigned, the reps you finished, and how it felt. Reps done turn green when you hit the assignment and yellow when you fall short. Lifting more weight or more reps over time is the best week-to-week sign of muscle gain between scans.</p>
+    <div class="empty-msg str-empty" hidden>No sessions logged yet. After a workout, send me each exercise with its sets, reps and weight (for example, "squat 3x8 at 135") and it will show here.</div>
+    <div class="str-body">
+      <div class="tiles mini">
+        <div><p class="tile-label">Sessions logged</p><p class="tile-num"><span data-draw="str-sessions" data-source="strength-stats" data-field="sessions">—</span></p></div>
+        <div><p class="tile-label">Exercises tracked</p><p class="tile-num"><span data-draw="str-ex" data-source="strength-stats" data-field="exercises">—</span></p></div>
+        <div><p class="tile-label">Last session</p><p class="tile-num"><span data-draw="str-last" data-source="strength-stats" data-field="last_date">—</span></p></div>
+      </div>
+      <h3 class="ch-title">Best by exercise</h3>
+      <div class="scroll">
+        <table data-source="strength-best" data-row-key="exercise">
+          <thead><tr>
+            <th data-field="exercise">Exercise</th>
+            <th data-field="first_lb" class="n">First (lb)</th>
+            <th data-field="best_lb" class="n">Best (lb)</th>
+            <th data-field="change_lb" class="n">Change</th>
+            <th data-field="best_date" class="hide-sm">Best on</th>
+          </tr></thead>
+          <tbody data-draw="str-best"></tbody>
+        </table>
+      </div>
+      <h3 class="ch-title" style="margin-top: var(--cds-gap-lg)">Sessions</h3>
+      <div class="daylog" data-draw="str-sessions-log" data-source="strength"></div>
+    </div>
+    </div>
+  </details>
+
+  <details class="card sec" id="tape">
+    <summary><h2>Tape measurements</h2><span class="peek" data-draw="pk-tape" data-source="tape-latest">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Bare skin, every two weeks, at the same time of day as the first set (8:30 PM). All measurements in inches. Shoulders are measured around, just above the nipples. Arms, thighs and calves are left / right, measured 6 inches from the knee for thighs and calves. Change is from the first entry.</p>
+    <p class="note">On a phone, swipe the table sideways to see shoulders, neck, arms, thighs and calves.</p>
+    <div class="empty-msg tape-empty" hidden>No tape measurements logged yet. Send your first set and they'll show up here.</div>
+    <div class="tape-body">
+    <div class="tiles mini">
+      <div><p class="tile-label">Waist</p><p class="tile-num"><span data-draw="t-waist" data-source="tape-latest" data-field="waist_in">—</span><span class="unit">in</span></p><p class="chg"><span data-draw="t-waist-chg" data-source="tape-latest" data-field="waist_change">—</span> since first</p></div>
+      <div><p class="tile-label">Chest</p><p class="tile-num"><span data-draw="t-chest" data-source="tape-latest" data-field="chest_in">—</span><span class="unit">in</span></p><p class="chg"><span data-draw="t-chest-chg" data-source="tape-latest" data-field="chest_change">—</span> since first</p></div>
+      <div><p class="tile-label">Arms, average</p><p class="tile-num"><span data-draw="t-arm" data-source="tape-latest" data-field="arm_in">—</span><span class="unit">in</span></p><p class="chg"><span data-draw="t-arm-chg" data-source="tape-latest" data-field="arm_change">—</span> since first</p></div>
+    </div>
+    <div class="scroll">
+      <table class="tapetbl" data-source="tape" data-row-key="date">
+        <thead><tr>
+          <th data-field="date">Day</th>
+          <th data-field="waist_in" class="n">Waist</th>
+          <th data-field="hips_in" class="n">Hips</th>
+          <th data-field="chest_in" class="n">Chest</th>
+          <th data-field="shoulders_in" class="n">Shoulders</th>
+          <th data-field="neck_in" class="n">Neck</th>
+          <th data-field="arm_l_in" class="n">Arms L / R</th>
+          <th data-field="thigh_l_in" class="n">Thighs L / R</th>
+          <th data-field="calf_l_in" class="n">Calves L / R</th>
+        </tr></thead>
+        <tbody data-draw="t-rows"></tbody>
+      </table>
+    </div>
+    </div>
+    </div>
+  </details>
+
+  <details class="card sec" id="weight">
+    <summary><h2>Weigh-ins</h2><span class="peek" data-draw="pk-weight" data-source="weight-week">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Each dot is a morning weigh-in. The solid orange line is the 7-day average, which smooths out day-to-day water swings and is the number to judge progress by. The dashed line is your trainer's minimum pace, 2 lb a week from the first weigh-in: staying at or below it means you're on track.</p>
+    <div class="tiles mini">
+      <div><p class="tile-label">7-day average</p><p class="tile-num"><span data-draw="wk-avg" data-source="weight-week" data-field="avg_lb">—</span><span class="unit">lb</span></p><p class="chg"><span data-draw="wk-avg-chg" data-source="weight-week" data-field="change_lb">—</span> vs. the 7 days before</p></div>
+      <div><p class="tile-label">Start (Nov 2)</p><p class="tile-num"><span data-draw="start" data-source="weight-stats" data-field="start_lb">—</span><span class="unit">lb</span></p></div>
+      <div><p class="tile-label">Latest</p><p class="tile-num"><span data-draw="latest" data-source="weight-stats" data-field="latest_lb">—</span><span class="unit">lb</span></p></div>
+      <div><p class="tile-label">Change</p><p class="tile-num"><span data-draw="change" data-source="weight-stats" data-field="change_lb">—</span><span class="unit">lb</span></p></div>
+    </div>
+    <div class="chart" data-draw="chart" data-source="weigh-ins weight-avg"></div>
+    <div class="legend"><span class="w">Weight</span><span class="avg7">7-day average</span><span class="pace" style="--sw: var(--cds-chart-reference)">2 lb/week minimum</span></div>
+    </div>
+  </details>
+
+  <details class="card sec" id="nutrition" open>
+    <summary><h2>Nutrition</h2><span class="peek" data-draw="pk-nutrition" data-source="day-latest">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Daily targets: <span data-draw="t-cal-note">—</span> calories (within <span data-draw="t-band-note">—</span> counts as on target; only more than that shows red) and <span data-draw="t-pro-note">—</span> g protein, both set with your trainer. Protein is a minimum: going over is fine. Weeks run Monday to Sunday.</p>
+
+    <div class="nut-grid">
+      <div class="sub">
+        <h3>Latest day: <span data-draw="nut-day" data-source="day-latest" data-field="date">—</span></h3>
+        <div class="meters">
+          <div>
+            <p class="tile-label">Protein</p>
+            <p class="tile-num"><span data-draw="d-pro" data-source="day-latest" data-field="protein_g">—</span><span class="unit">of <span data-draw="t-pro">—</span> g</span></p>
+            <div class="meter-bar" data-draw="b-pro" data-source="day-latest"></div>
+            <p class="chg"><span data-draw="r-pro" data-source="day-latest">—</span></p>
+          </div>
+          <div>
+            <p class="tile-label">Calories</p>
+            <p class="tile-num"><span data-draw="d-cal" data-source="day-latest" data-field="calories">—</span><span class="unit">of <span data-draw="t-cal">—</span></span></p>
+            <div class="meter-bar" data-draw="b-cal" data-source="day-latest"></div>
+            <p class="chg"><span data-draw="r-cal" data-source="day-latest">—</span></p>
+          </div>
+          <div>
+            <p class="tile-label">Carbs</p>
+            <p class="tile-num"><span data-draw="d-carb" data-source="day-latest" data-field="carbs_g">—</span><span class="unit">g</span></p>
+          </div>
+          <div>
+            <p class="tile-label">Fat</p>
+            <p class="tile-num"><span data-draw="d-fat" data-source="day-latest" data-field="fat_g">—</span><span class="unit">g</span></p>
+          </div>
+        </div>
+        <p class="tile-label" style="margin-top: var(--cds-gap-md)">Where the calories came from</p>
+        <div class="split" data-draw="split" data-source="day-latest"></div>
+        <div class="legend"><span class="sp-p">Protein</span><span class="sp-c">Carbs</span><span class="sp-f">Fat</span></div>
+      </div>
+
+      <div class="sub">
+        <h3>Week of <span data-draw="wk-label" data-source="food-weeks" data-field="week_start">—</span></h3>
+        <div class="meters">
+          <div><p class="tile-label">Calories eaten</p><p class="tile-num"><span data-draw="wk-cal" data-source="food-weeks" data-field="calories">—</span></p><p class="chg">Avg <span data-draw="wk-cal-avg" data-source="food-weeks" data-field="avg_calories">—</span> a day</p></div>
+          <div><p class="tile-label">Protein</p><p class="tile-num"><span data-draw="wk-pro" data-source="food-weeks" data-field="protein_g">—</span><span class="unit">g</span></p><p class="chg">Avg <span data-draw="wk-pro-avg" data-source="food-weeks" data-field="avg_protein_g">—</span> g a day</p></div>
+          <div><p class="tile-label">Carbs</p><p class="tile-num"><span data-draw="wk-carb" data-source="food-weeks" data-field="carbs_g">—</span><span class="unit">g</span></p></div>
+          <div><p class="tile-label">Fat</p><p class="tile-num"><span data-draw="wk-fat" data-source="food-weeks" data-field="fat_g">—</span><span class="unit">g</span></p></div>
+        </div>
+        <p class="chg" style="margin-top: var(--cds-gap-md)">Days logged: <b data-draw="wk-days" data-source="food-weeks" data-field="days">—</b>. Protein target hit on <b data-draw="wk-hit" data-source="daily-food">—</b> of them.</p>
+      </div>
+    </div>
+
+    <div class="charts2">
+      <div>
+        <h3 class="ch-title">Protein per day</h3>
+        <div class="chart" data-draw="pro-chart" data-source="daily-food"></div>
+        <div class="legend"><span class="bar pb">Protein</span><span class="pace" style="--sw: var(--cds-chart-reference)">Target</span></div>
+      </div>
+      <div>
+        <h3 class="ch-title">Calories per day</h3>
+        <div class="chart" data-draw="cal-chart" data-source="daily-food"></div>
+        <div class="legend"><span class="bar cb">Calories</span><span class="pace" style="--sw: var(--cds-chart-reference)">Target</span></div>
+      </div>
+    </div>
+
+    <h3 class="ch-title" style="margin-top: var(--cds-gap-lg)">Food vs. next-morning weight</h3>
+    <p class="note">Each column is a morning weigh-in. The white dot is that morning's weight, and the bar under it is what you ate the day before, colored by whether it was on target. Early on these swings are mostly water and food in your system, so look for a pattern over a few weeks, not one day.</p>
+    <div class="sub fw-sum"><p class="chg" data-draw="fw-summary" data-source="food-weight">—</p></div>
+    <div class="chart sm" data-draw="fw-chart" data-source="food-weight" style="margin-top: var(--cds-gap-md)"></div>
+    <div class="legend"><span class="fw-wt">Morning weight</span><span class="bar fw-low">Ate under <span data-draw="fw-low">—</span></span><span class="bar fw-under">On target, <span data-draw="fw-low-2">—</span> to <span data-draw="fw-max">—</span></span><span class="bar fw-over">Over <span data-draw="fw-max-2">—</span></span><span class="pace" style="--sw: var(--cds-chart-reference)"><span data-draw="fw-target">—</span> target</span></div>
+    <div class="scroll" style="margin-top: var(--cds-gap-md)">
+      <table class="daytbl" data-source="food-weight" data-row-key="weigh_date">
+        <colgroup><col class="c-meal"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"></colgroup>
+        <thead><tr>
+          <th data-field="weigh_date">Weigh-in</th>
+          <th data-field="next_weight_lb" class="n">Weight (lb)</th>
+          <th data-field="change_lb" class="n">Change (lb)</th>
+          <th data-field="calories" class="n">Calories day before</th>
+          <th data-field="protein_g" class="n">Protein (g)</th>
+          <th data-field="carbs_g" class="n">Carbs (g)</th>
+        </tr></thead>
+        <tbody data-draw="fw-rows"></tbody>
+      </table>
+    </div>
+
+    <h3 class="ch-title" style="margin-top: var(--cds-gap-lg)">Food log</h3>
+    <p class="note">Each meal with its macros, a total for each day, and a total for each week. Chopped Up Meals use their chart at 4 oz per item; restaurant food is estimated. Sodium is in mg: a ? means the place doesn't publish it (Chopped Up, Mezeh), and a + on a day total means it's missing those, so the real number is higher. Aim for 1,500 to 2,300 mg, kept steady day to day.</p>
+    <div class="daylog" data-draw="food-days" data-source="food-log daily-food food-weeks"></div>
+    </div>
+  </details>
+
+  <details class="card sec" id="plan">
+    <summary><h2>Plan vs. actual</h2><span class="peek" data-draw="pk-plan" data-source="plan daily-food">—</span></summary>
+    <div class="sec-body">
+    <p class="note">The fixed daily plan, and how each day compares once it starts on <span data-draw="plan-start">—</span>, when the new Chopped Up order arrives. A positive difference means you ate more than the plan.</p>
+    <div class="scroll">
+      <table data-source="plan" data-row-key="order">
+        <thead><tr>
+          <th data-field="slot">When</th>
+          <th data-field="item">What</th>
+          <th data-field="calories" class="n">Calories</th>
+          <th data-field="protein_g" class="n">Protein (g)</th>
+          <th data-field="carbs_g" class="n hide-sm">Carbs (g)</th>
+          <th data-field="fat_g" class="n hide-sm">Fat (g)</th>
+        </tr></thead>
+        <tbody data-draw="plan-rows"></tbody>
+      </table>
+    </div>
+    <h3 class="ch-title" style="margin-top: var(--cds-gap-lg)">Each day against the plan</h3>
+    <div class="empty-msg plan-empty" hidden>Nothing to compare yet. Days from <span data-draw="plan-start-2">—</span> on will show here.</div>
+    <div class="scroll plan-body">
+      <table class="daytbl">
+        <colgroup><col class="c-meal"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"></colgroup>
+        <thead><tr>
+          <th>Day</th>
+          <th class="n">Calories</th>
+          <th class="n">vs. plan</th>
+          <th class="n">Protein (g)</th>
+          <th class="n">vs. plan</th>
+          <th class="n hide-sm">Carbs (g)</th>
+          <th class="n hide-sm">Fat (g)</th>
+        </tr></thead>
+        <tbody data-draw="plan-compare" data-source="plan daily-food"></tbody>
+      </table>
+    </div>
+    </div>
+  </details>
+
+  <details class="card sec" id="cardio">
+    <summary><h2>Cardio</h2><span class="peek" data-draw="pk-cardio" data-source="walk-totals">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Incline treadmill walks: 20 minutes daily at 8% incline, 2.5 to 3.0 mph. Calories burned are estimates from the standard treadmill formula.</p>
+    <div class="tiles mini">
+      <div><p class="tile-label">Walks logged</p><p class="tile-num"><span data-draw="walk-count" data-source="walk-totals" data-field="walks">—</span></p></div>
+      <div><p class="tile-label">Total minutes</p><p class="tile-num"><span data-draw="walk-min" data-source="walk-totals" data-field="minutes">—</span></p></div>
+      <div><p class="tile-label">Est. calories burned</p><p class="tile-num"><span data-draw="walk-cal" data-source="walk-totals" data-field="est_calories">—</span></p></div>
+    </div>
+    <div class="scroll">
+      <table data-source="walks" data-row-key="date">
+        <thead><tr>
+          <th data-field="date">Day</th>
+          <th data-field="minutes" class="n">Minutes</th>
+          <th data-field="incline_pct" class="n">Incline (%)</th>
+          <th data-field="speed_mph" class="n">Speed (mph)</th>
+          <th data-field="est_calories" class="n">Est. calories</th>
+        </tr></thead>
+        <tbody data-draw="walk-rows"></tbody>
+      </table>
+    </div>
+    </div>
+  </details>
+
+  <details class="card sec" id="sleep">
+    <summary><h2>Sleep</h2><span class="peek" data-draw="pk-sleep" data-source="habit-stats">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Hours slept each night. Under <span data-draw="sleep-goal">—</span> hours slows muscle recovery and makes fat loss harder.</p>
+    <div class="empty-msg sleep-empty" hidden>No sleep logged yet. Send your hours with your morning weigh-in (for example, "slept 6.5") and they'll show here.</div>
+    <div class="sleep-body">
+      <div class="tiles mini">
+        <div><p class="tile-label">Average, last 7 nights</p><p class="tile-num"><span data-draw="sl-avg" data-source="habit-stats" data-field="sleep_avg7">—</span><span class="unit">hours</span></p></div>
+        <div><p class="tile-label">Nights under goal, last 7</p><p class="tile-num"><span data-draw="sl-short" data-source="habits">—</span></p></div>
+      </div>
+      <div class="chart sm" data-draw="sleep-chart" data-source="habits"></div>
+      <div class="legend"><span class="bar slb">Hours slept</span><span class="pace" style="--sw: var(--cds-chart-reference)">Goal</span></div>
+    </div>
+    </div>
+  </details>
+
+  <details class="card sec" id="water">
+    <summary><h2>Water</h2><span class="peek" data-draw="pk-water" data-source="habit-stats">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Ounces of water each day. Water changes the scale and InBody readings, so steady intake makes both easier to read.</p>
+    <div class="empty-msg water-empty" hidden>No water logged yet. Send a daily total in ounces (a standard bottle is about 17 oz) and it will show here.</div>
+    <div class="water-body">
+      <div class="tiles mini">
+        <div><p class="tile-label">Average, last 7 days</p><p class="tile-num"><span data-draw="wa-avg" data-source="habit-stats" data-field="water_avg7">—</span><span class="unit">oz</span></p></div>
+      </div>
+      <div class="chart sm" data-draw="water-chart" data-source="habits"></div>
+      <div class="legend"><span class="bar wab">Water</span></div>
+    </div>
+    </div>
+  </details>
+
+  <details class="card sec" id="photos">
+    <summary><h2>Progress photos</h2><span class="peek" data-draw="pk-photos" data-source="photos">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Front, side and back every 2 to 4 weeks, same spot, same lighting, first thing in the morning. They often show muscle changes before the scale or tape does. Anyone you share the tracker link with can see these.</p>
+    <div class="empty-msg photos-empty" hidden>No photos yet. Send your first front, side and back set and they'll show here by date.</div>
+    <div class="daylog" data-draw="photo-sets" data-source="photos"></div>
+    </div>
+  </details>
+
+  <details class="card sec" id="meals">
+    <summary><h2>Chopped Up Meals by week</h2><span class="peek" data-draw="pk-meals" data-source="meal-menu">—</span></summary>
+    <div class="sec-body">
+    <p class="note">Each week's order, labeled by the Monday it starts, oldest first. Per meal, assuming 4 oz of each item from their nutrition chart, before seasoning. Past weeks stay on the page.</p>
+    <div class="daylog" data-draw="meals" data-source="meal-menu"></div>
+    </div>
+  </details>
+</div>
+
+</div>
+<script>
+window.__DATA__ = {"weigh-ins": "date,weight_lb\n2026-11-02,207.8\n2026-11-04,206.4\n2026-11-05,208.8\n2026-11-06,207.8\n2026-11-09,204.5\n2026-11-10,204.0\n2026-11-11,204.2\n2026-11-12,205.6\n", "food-log": "entry,date,meal,item,calories,protein_g,carbs_g,fat_g,sodium_mg,basis\n2026-11-02 Breakfast,2026-11-02,Breakfast,Barebells peanut butter bar,210,20,20,8,150,Label\n2026-11-02 Lunch,2026-11-02,Lunch,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-02 Dinner,2026-11-02,Dinner,Leftover rattlesnake pasta (Copper Canyon Grill),705,33.5,63,35,,Estimate: half a restaurant order\n2026-11-03 Breakfast,2026-11-03,Breakfast,Clif Bar crunchy peanut butter,265,10.9,35.4,7.5,230,Label\n2026-11-03 Lunch,2026-11-03,Lunch,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-03 Dinner,2026-11-03,Dinner,Lemon pepper chicken meal,340,36.5,37,4.2,,Chopped Up Meals chart\n2026-11-04 Breakfast,2026-11-04,Breakfast,2 McDonald's sausage burritos,604,24.2,50,34,1600,Published nutrition x2\n2026-11-04 Lunch,2026-11-04,Lunch,Jerk chicken wings meal,326,25.3,27,13.2,,Chopped Up Meals chart\n2026-11-04 Dinner,2026-11-04,Dinner,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-04 Snack,2026-11-04,Snack,Grapes (about 1.5 cups),155,1.6,41,0.4,5,USDA estimate\n2026-11-04 Snack 2,2026-11-04,Snack,Cashews (one bag),320,10,18,26,160,Label calories; macros estimated\n2026-11-04 Snack 3,2026-11-04,Snack,Beef jerky,140,24,10,2,550,Label calories; macros estimated\n2026-11-05 Post-workout,2026-11-05,Post-workout,Fairlife Core Power 26g vanilla shake (14 oz),170,26,6,4.5,230,Label\n2026-11-05 Post-workout 2,2026-11-05,Post-workout,Quest peanut butter protein cookie,210,15,23,13,280,Label\n2026-11-05 Lunch,2026-11-05,Lunch,Lemon pepper chicken meal,340,36.5,37,4.2,,Chopped Up Meals chart\n2026-11-05 Snack,2026-11-05,Snack,2 Oikos Pro peach yogurt cups,260,40,12,6,100,Label\n2026-11-05 Snack 2,2026-11-05,Snack,3 Polly-O string cheese,240,21,3,15,540,Label\n2026-11-05 Snack 3,2026-11-05,Snack,3 Eggland's Best hard-cooked eggs,150,18,0,10.5,165,Label\n2026-11-05 Dinner,2026-11-05,Dinner,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-05 Snack 4,2026-11-05,Snack,1 mandarin,45,0.7,11,0.3,0,Label calories; macros estimated\n2026-11-06 Post-workout,2026-11-06,Post-workout,Fairlife Core Power 26g vanilla shake (14 oz),170,26,6,4.5,230,Label\n2026-11-06 Snack,2026-11-06,Snack,1 mandarin,45,0.7,11,0.3,0,Label calories; macros estimated\n2026-11-06 Lunch,2026-11-06,Lunch,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-06 Snack 2,2026-11-06,Snack,3 Polly-O string cheese,240,21,3,15,540,Label\n2026-11-06 Snack 3,2026-11-06,Snack,2 Oikos Pro peach yogurt cups,260,40,12,6,100,Label\n2026-11-07 Snack,2026-11-07,Snack,2 mandarins,90,1.4,22,0.6,0,Label calories; macros estimated\n2026-11-07 Snack 2,2026-11-07,Snack,3 Eggland's Best hard-cooked eggs,150,18,0,10.5,165,Label\n2026-11-07 Lunch,2026-11-07,Lunch,\"Mezeh bowl: greens, double honey harissa chicken, tomatoes, cucumbers, onions, olives, a little feta, light lemon garlic\",770,78,18,42.5,,Estimate from Mezeh nutrition data\n2026-11-07 Snack 3,2026-11-07,Snack,Ensure Original vanilla (8 oz),220,9,33,6,200,Label\n2026-11-07 Snack 4,2026-11-07,Snack,plnt plant protein shake (2 scoops with water),200,30,10,4,360,Label\n2026-11-08 Snack,2026-11-08,Snack,2 mandarins,90,1.4,22,0.6,0,Label calories; macros estimated\n2026-11-08 Snack 2,2026-11-08,Snack,Ensure Original vanilla (8 oz),220,9,33,6,200,Label\n2026-11-08 Snack 3,2026-11-08,Snack,3 Eggland's Best hard-cooked eggs,150,18,0,10.5,165,Label\n2026-11-08 Lunch,2026-11-08,Lunch,Jerk chicken wings only (no sides),210,22,0,13,,Chopped Up Meals chart\n2026-11-08 Snack 4,2026-11-08,Snack,plnt plant protein shake (2 scoops with water),200,30,10,4,360,Label\n2026-11-08 Snack 5,2026-11-08,Snack,3 Eggland's Best hard-cooked eggs,150,18,0,10.5,165,Label\n2026-11-08 Dinner,2026-11-08,Dinner,Popeyes 5-piece blackened tenders,283,47,3,10,950,Popeyes published nutrition (sodium under 1000)\n2026-11-08 Dinner 2,2026-11-08,Dinner,District Rico white rice (side),250,4,50,3,,Estimate\n2026-11-08 Dinner 3,2026-11-08,Dinner,District Rico Brussels sprouts (side),130,4,12,8,,Estimate\n2026-11-09 Snack,2026-11-09,Snack,Ensure Original vanilla (8 oz),220,9,33,6,200,Label\n2026-11-09 Lunch,2026-11-09,Lunch,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-09 Snack 2,2026-11-09,Snack,3 Eggland's Best hard-cooked eggs,150,18,0,10.5,165,Label\n2026-11-09 Dinner,2026-11-09,Dinner,Jerk chicken wings meal,326,25.3,27,13.2,,Chopped Up Meals chart\n2026-11-09 Snack 3,2026-11-09,Snack,1 mandarin,45,0.7,11,0.3,0,Label calories; macros estimated\n2026-11-09 Snack 4,2026-11-09,Snack,2 Polly-O string cheese,160,14,2,10,360,Label\n2026-11-09 Snack 5,2026-11-09,Snack,plnt protein shake (2 scoops with water),200,30,10,4,360,Label\n2026-11-10 Lunch,2026-11-10,Lunch,6 Chick-fil-A fried nuggets (half of a 12 ct; given fried instead of grilled),190,20,8,8.5,650,Chick-fil-A published macros (half of 12 ct); sodium estimated\n2026-11-10 Snack,2026-11-10,Snack,Ensure Original vanilla (8 oz),220,9,33,6,200,Label\n2026-11-10 Dinner,2026-11-10,Dinner,Sauteed ground beef meal,401,33,23,19.5,,Chopped Up Meals chart\n2026-11-10 Snack 2,2026-11-10,Snack,plnt protein shake (2 scoops with water),200,30,10,4,360,Label\n2026-11-10 Snack 3,2026-11-10,Snack,1 mandarin,45,0.7,11,0.3,0,Label calories; macros estimated\n2026-11-11 Snack,2026-11-11,Snack,Ensure Original vanilla (8 oz),220,9,33,6,200,Label\n2026-11-11 Snack 2,2026-11-11,Snack,Ensure Original vanilla (8 oz),220,9,33,6,200,Label\n2026-11-11 Lunch,2026-11-11,Lunch,Lemon pepper chicken meal,340,36.5,37,4.2,,Chopped Up Meals chart\n2026-11-11 Snack 3,2026-11-11,Snack,2 mandarins,90,1.4,22,0.6,0,Label calories; macros estimated\n2026-11-11 Snack 4,2026-11-11,Snack,2 Ensure Max Protein shakes (11 oz each),300,60,12,4,460,Label\n2026-11-11 Snack 5,2026-11-11,Snack,2 Eggland's Best hard-cooked eggs,100,12,0,7,110,Label\n2026-11-11 Dinner,2026-11-11,Dinner,Jerk chicken wings meal,326,25.3,27,13.2,,Chopped Up Meals chart\n2026-11-11 Snack 6,2026-11-11,Snack,plnt protein shake (2 scoops with water),200,30,10,4,360,Label\n2026-11-12 Breakfast,2026-11-12,Breakfast,Ensure Max Protein shake (11 oz),150,30,6,2,230,Label\n2026-11-12 Lunch,2026-11-12,Lunch,Lemon pepper chicken meal,340,36.5,37,4.2,,Chopped Up Meals chart\n2026-11-12 Snack 2,2026-11-12,Snack,Ensure Max Protein shake (11 oz),150,30,6,2,230,Label\n2026-11-12 Snack 3,2026-11-12,Snack,3 Eggland's Best hard-cooked eggs,150,18,0,10.5,165,Label\n2026-11-12 Dinner,2026-11-12,Dinner,Ensure Max Protein shake mixed with plnt protein shake (2 scoops),350,60,16,6,590,Labels (Ensure Max + plnt)\n", "inbody": "date,machine,time,weight_lb,muscle_lb,fat_mass_lb,body_fat_pct,visceral_fat,arm_r_pct,arm_l_pct,trunk_pct,leg_r_pct,leg_l_pct\n2026-08-17,InBody 380,,206.5,84.0,,28.5,,,,,,\n2026-10-19,InBody 380,2 PM,207.5,84.4,60.0,28.9,,,,,,\n2026-10-31,InBody 570,9 AM,205.6,83.3,60.5,29.4,12,,,,,\n", "tape": "date,time,waist_in,hips_in,chest_in,shoulders_in,neck_in,arm_l_in,arm_r_in,thigh_l_in,thigh_r_in,calf_l_in,calf_r_in\n2026-11-09,8:30 PM,43,44,42,53,17,15,15,20.5,20,16,16\n", "walks": "date,minutes,incline_pct,speed_mph,est_calories\n2026-11-03,20,8,2.5-3.0,175\n", "meal-menu": "week_start,meal,qty,flavor,protein,carb,veggie,calories,protein_g,carbs_g,fat_g\n2026-11-02,Lemon pepper chicken,5,Lemon Pepper,Chicken Breast,White Rice,Brussels Sprouts,340,36.5,37,4.2\n2026-11-02,Sauteed ground beef,5,Sauteed,Ground Beef,Mashed Potatoes,Spinach,401,33,23,19.5\n2026-11-02,Jerk chicken wings,5,Jerk,Chicken Wings,Sweet Potatoes,Cabbage,326,25.3,27,13.2\n2026-11-09,Lemon pepper chicken,5,Lemon Pepper,Chicken Breast,White Rice,Brussels Sprouts,340,36.5,37,4.2\n2026-11-09,Sauteed ground beef,5,Sauteed,Ground Beef,Mashed Potatoes,Spinach,401,33,23,19.5\n2026-11-09,Jerk chicken wings,5,Jerk,Chicken Wings,Sweet Potatoes,Cabbage,326,25.3,27,13.2\n", "strength": "date,exercise,sets,reps_assigned,reps_done,weight_lb,notes\n2026-11-09,Squat,,20,20,35,\n2026-11-09,Lunges,,20,20,20,\n2026-11-09,Leg press,,20,20,200,\n2026-11-09,RDLs,,20,20,95,\n2026-11-09,Calf raises,,50,50,30,\n2026-11-10,Bench press,1,15,15,110,Set 1 of 2\n2026-11-10,Bench press,1,15,10,95,Set 2 of 2; about 10\n2026-11-10,DB chest press,1,20,20,30,Round 1 of 2; felt decent\n2026-11-10,Chest press machine (level 6),1,20,17,60,Failed at 17\n2026-11-10,Push-ups,1,20,20,,Plus 5 alternating\n2026-11-10,Close-grip push-ups,1,20,16,,Failed at 16\n2026-11-10,DB chest press (drop set),1,10,10,40,Struggled; not in trainer note but done\n2026-11-10,DB chest press,1,20,20,30,Round 2 of 2; struggled\n2026-11-10,Chest flies,1,20,20,20,Failed at 15; pushed out 5 more\n2026-11-10,Chest press machine (neutral grip),1,20,14,60,Failed at 14; finished with assistance; felt brutal\n2026-11-10,Neutral grip drop set,1,,10,40,20 lb drop; last 5 with assistance\n2026-11-10,Hanging leg raises,1,50,40,,\"Cut short for time; first 25 easy, last 15 hard\"\n2026-11-11,Lat pulldown (overhand),2,20,20,90,2 rounds; all full\n2026-11-11,Lat pulldown (underhand),2,20,20,90,2 rounds; all full\n2026-11-11,Rows,2,,,35,2 rounds; 15 to 20 reps; all full\n2026-11-11,Flies,2,20,20,15,2 rounds; all full\n2026-11-11,Supermans,2,50,50,,2 rounds; all full\n2026-11-11,Pull-ups (overhand),2,25,25,,2 rounds; band mentioned in recording; all full\n2026-11-11,Pull-ups (underhand),2,25,25,,2 rounds; band mentioned in recording; all full\n2026-11-12,EZ bar curls,1,20,20,50,Round 1\n2026-11-12,Overhead tricep extension,2,20,20,15,2 rounds\n2026-11-12,Cross-body curls (dumbbells),2,20,20,20,2 rounds\n2026-11-12,Cable tricep extension,1,20,20,30,Round 1; trainer said go up next time\n2026-11-12,Zottman curls,2,20,20,15,2 rounds\n2026-11-12,Tricep kickbacks,2,20,20,15,2 rounds\n2026-11-12,EZ bar curls,1,20,12,60,Went up 10 lb; did 12 of 20\n2026-11-12,EZ bar curls (drop back),1,10,10,50,Dropped back to 50 after the 60 set\n2026-11-12,Tricep pushdowns,1,20,20,40,Round 2\n2026-11-12,Core finisher,1,,,,Bodyweight hold; details not recalled (trainer had planned slider mountain climbers)\n", "habits": "date,sleep_hr,water_oz,energy,hunger\n2026-11-08,,51,,\n2026-11-09,6.75,101,,\n2026-11-10,4.75,165,2.5,1.5\n2026-11-11,6.5,115,3,3\n", "plan": "order,slot,item,calories,protein_g,carbs_g,fat_g\n1,Breakfast,\"2 Oikos Pro cups, 3 Eggland's Best eggs, 1 oz cashews\",570,63,21,29.5\n2,Lunch,\"Chopped Up: chicken breast, fried rice, spinach\",331,40,30,5\n3,Afternoon snack,\"1 Oikos Pro cup, 2 Polly-O string cheese, 1 mandarin\",335,34.7,19,13\n4,Dinner,\"Chopped Up: beef strips, fried rice, spinach\",356,36,30,9.4\n5,Evening snack,\"3 Eggland's Best eggs, 1 Polly-O string cheese\",230,25,1,15.5\n", "photos": "date,pose,src\n"};
+window.__SNAPSHOT__ = "Thu, Nov 12 at 7:31 PM";
+</script>
+<script>
+// Minimal stand-in for the tracker's data runtime, so this copy works as a plain file.
+(function () {
+  const RAW = window.__DATA__;
+  const calcs = {};
+  const loaders = {};
+  const cache = {};
+  const draws = [];
+  const dataFns = [];
+  const parse = (csv) => d3.csvParse(csv.trim() ? csv : 'x\n');
+  function data(id) {
+    if (cache[id]) return cache[id];
+    let rows = [];
+    if (RAW[id] != null) rows = d3.csvParse(RAW[id]).map((r) => ({ ...r }));
+    else if (calcs[id]) {
+      const c = calcs[id];
+      rows = c.fn(...c.inputs.map((i) => data(i).data));
+    }
+    cache[id] = { status: 'ok', data: rows, rows, columns: rows.columns || Object.keys(rows[0] || {}), message: '', refreshing: false, meta: [] };
+    return cache[id];
+  }
+  window.dash = {
+    data,
+    calc: (id, def) => { calcs[id] = def; },
+    loader: (id, def) => { loaders[id] = def; },
+    draw: (name, fn) => { draws.push([name, fn]); },
+    onData: (fn) => { dataFns.push(fn); },
+    params: () => ({}), setParams: () => {}, resetParams: () => {}, setLink: () => {}, refresh: () => {},
+    colors: ['#6ea8ff', '#4fd1a5', '#f2a65a'],
+  };
+  function runAll() {
+    dataFns.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } });
+    for (const [name, fn] of draws) {
+      document.querySelectorAll(`[data-draw="${name}"]`).forEach((el) => {
+        if (el.closest('[hidden]')) return;
+        try { fn(el); } catch (e) { console.error(name, e); }
+      });
+    }
+  }
+  window.__runAll = runAll;
+  let t;
+  const later = () => { clearTimeout(t); t = setTimeout(runAll, 120); };
+  window.addEventListener('resize', later);
+  document.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details.sec')) later(); }, true);
+})();
+
+</script>
+<script>
+(function () {
+
+  const PALETTE = ['#6ea8ff', '#4fd1a5', '#f2a65a']; // series colors for the dark layout: blue, green, orange
+  const PACE = 2 / 7; // lb per day: 2 lb a week, the trainer's minimum
+  document.querySelectorAll('.legend .w').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
+
+  dash.calc('weight-stats', {
+    inputs: ['weigh-ins'],
+    title: 'Weight change so far',
+    description: 'First and latest weigh-in, the change between them, and the average rate.',
+    fn: (weighIns) => {
+      const r = weighIns.map((d) => ({ date: d.date, w: Number(d.weight_lb) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+      if (!r.length) return [];
+      const f = r[0], l = r[r.length - 1];
+      const days = Math.round((Date.parse(l.date) - Date.parse(f.date)) / 864e5);
+      const change = +(l.w - f.w).toFixed(1);
+      return [{ start_lb: f.w, latest_lb: l.w, change_lb: change, days, lb_per_week: days ? +((change / days) * 7).toFixed(1) : 0 }];
+    },
+  });
+
+  const stat = (field, fmt) => (el) => {
+    const s = dash.data('weight-stats');
+    el.textContent = s.status === 'ok' && s.data.length ? fmt(s.data[0][field]) : '—';
+  };
+  const one = (v) => Number(v).toFixed(1);
+  dash.draw('lede-change', stat('change_lb', one));
+  dash.draw('lede-days', stat('days', (v) => String(v)));
+  dash.draw('start', stat('start_lb', one));
+  dash.draw('latest', stat('latest_lb', one));
+  dash.draw('change', stat('change_lb', one));
+  dash.draw('perweek', stat('lb_per_week', one));
+
+  dash.draw('chart', (el) => {
+    const src = dash.data('weigh-ins');
+    el.replaceChildren();
+    if (src.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (src.status !== 'ok' || !src.data.length) return;
+    const pts = src.data.map((d) => ({ date: new Date(d.date + 'T12:00:00Z'), w: Number(d.weight_lb) })).sort((a, b) => a.date - b.date);
+    const first = pts[0], last = pts[pts.length - 1];
+    const end = d3.utcDay.offset(last.date, 7);
+    const paceAt = (dt) => first.w - PACE * ((dt - first.date) / 864e5);
+    const W = Math.max(280, el.clientWidth), H = 280;
+    const ys = [...pts.map((p) => p.w), paceAt(end)];
+    const y = d3.scaleLinear([Math.floor(d3.min(ys)) - 1, Math.ceil(d3.max(ys)) + 1], [H - 28, 10]).nice();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block').style('overflow', 'visible');
+    const yAx = svg.append('g').call(d3.axisLeft(y).ticks(5).tickSize(0)).attr('font-size', null).attr('font-family', null);
+    yAx.select('.domain').remove();
+    yAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    let mL = 0; yAx.selectAll('text').each(function () { mL = Math.max(mL, this.getComputedTextLength()); });
+    mL += 12;
+    yAx.attr('transform', `translate(${mL - 6},0)`);
+    const x = d3.scaleUtc([first.date, end], [mL, W - 8]);
+    svg.insert('g', ':first-child').selectAll('line').data(y.ticks(5)).join('line')
+      .attr('x1', mL).attr('x2', W - 8).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+    const xAx = svg.append('g').attr('transform', `translate(0,${H - 28})`)
+      .call(d3.axisBottom(x).ticks(Math.max(2, Math.floor(W / 90))).tickFormat(d3.utcFormat('%b %-d')).tickSizeOuter(0))
+      .attr('font-size', null).attr('font-family', null);
+    xAx.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('.tick line').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    svg.append('line').attr('x1', x(first.date)).attr('y1', y(first.w)).attr('x2', x(end)).attr('y2', y(paceAt(end)))
+      .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+    const c = PALETTE[0];
+    svg.append('path').datum(pts).attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2)
+      .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')
+      .attr('d', d3.line().x((p) => x(p.date)).y((p) => y(p.w)));
+    const av = dash.data('weight-avg');
+    if (av.status === 'ok' && av.data.length > 1) {
+      const ap = av.data.map((d) => ({ date: new Date(d.date + 'T12:00:00Z'), a: d.avg7_lb }));
+      svg.append('path').datum(ap).attr('fill', 'none').attr('stroke', PALETTE[2]).attr('stroke-width', 2.5)
+        .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')
+        .attr('d', d3.line().x((p) => x(p.date)).y((p) => y(p.a)));
+    }
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
+    const fmtD = d3.utcFormat('%a, %b %-d');
+    svg.append('g').selectAll('circle').data(pts).join('circle')
+      .attr('cx', (p) => x(p.date)).attr('cy', (p) => y(p.w)).attr('r', 5)
+      .attr('fill', c).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2)
+      .on('pointerenter', function (ev, p) {
+        d3.select(this).attr('r', 7);
+        tip.selectAll('*').remove();
+        tip.append('div').attr('class', 'd').text(fmtD(p.date));
+        tip.append('div').text(`${p.w.toFixed(1)} lb`);
+        const tw = tip.node().offsetWidth;
+        const px = Math.min(Math.max(0, (x(p.date) / W) * el.clientWidth - tw / 2), el.clientWidth - tw);
+        tip.style('left', `${px}px`).style('top', `${(y(p.w) / H) * el.clientHeight - 48}px`).style('opacity', 1);
+      })
+      .on('pointerleave', function () { d3.select(this).attr('r', 5); tip.style('opacity', 0); });
+  });
+
+  const TARGET = 1800; // daily calorie target set with the trainer
+  const CAL_BAND = 50; // within 50 calories of the target counts as on target
+  const CAL_MAX = TARGET + CAL_BAND, CAL_LOW = TARGET - CAL_BAND; // only above CAL_MAX is flagged as over
+  document.querySelectorAll('.legend .bar').forEach((e) => e.style.setProperty('--sw', PALETTE[1]));
+
+  dash.calc('daily-food', {
+    inputs: ['food-log'],
+    title: 'Food totals by day',
+    description: 'Calories and macros from the food log, added up for each day.',
+    fn: (foodLog) => {
+      const by = d3.rollup(foodLog, (v) => ({
+        calories: d3.sum(v, (d) => Number(d.calories)),
+        protein_g: +d3.sum(v, (d) => Number(d.protein_g)).toFixed(1),
+        carbs_g: +d3.sum(v, (d) => Number(d.carbs_g)).toFixed(1),
+        fat_g: +d3.sum(v, (d) => Number(d.fat_g)).toFixed(1),
+        sodium_mg: d3.sum(v, (d) => (d.sodium_mg === '' || d.sodium_mg == null ? 0 : Number(d.sodium_mg))),
+        sodium_partial: v.some((d) => d.sodium_mg === '' || d.sodium_mg == null),
+      }), (d) => d.date);
+      return [...by].map(([date, t]) => ({ date, ...t })).sort((a, b) => (a.date < b.date ? -1 : 1));
+    },
+  });
+
+  const PROTEIN_TARGET = 198; // g a day, set by Javad's trainer; more is fine
+  const SODIUM_MAX = 2300; // mg a day, the standard daily limit for adults
+  const fmtInt = d3.format(',');
+  const fmtG = (v) => d3.format(',')(Math.round(v));
+  const todayStr = d3.timeFormat('%Y-%m-%d')(new Date());
+  const dayName = (s) => d3.utcFormat('%a, %b %-d')(new Date(s + 'T12:00:00Z'));
+  document.querySelectorAll('.legend .pb').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
+  document.querySelectorAll('.legend .cb').forEach((e) => e.style.setProperty('--sw', PALETTE[1]));
+  document.querySelectorAll('.legend .sp-p').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
+  document.querySelectorAll('.legend .sp-c').forEach((e) => e.style.setProperty('--sw', PALETTE[1]));
+  document.querySelectorAll('.legend .sp-f').forEach((e) => e.style.setProperty('--sw', PALETTE[2]));
+
+  dash.calc('day-latest', {
+    inputs: ['daily-food'],
+    title: 'Latest day logged',
+    description: 'Totals for the most recent day in the food log, with the share of calories from each macro.',
+    fn: (dailyFood) => {
+      if (!dailyFood.length) return [];
+      const d = dailyFood[dailyFood.length - 1];
+      const pc = d.protein_g * 4, cc = d.carbs_g * 4, fc = d.fat_g * 9, t = pc + cc + fc || 1;
+      return [{ ...d, protein_share: +(pc / t).toFixed(3), carbs_share: +(cc / t).toFixed(3), fat_share: +(fc / t).toFixed(3) }];
+    },
+  });
+
+  dash.calc('food-weeks', {
+    inputs: ['daily-food'],
+    title: 'Food totals by week',
+    description: 'Daily totals added up for each Monday to Sunday week, with the average per logged day.',
+    fn: (dailyFood) => {
+      const by = d3.rollup(dailyFood, (v) => ({
+        days: v.length,
+        calories: d3.sum(v, (d) => d.calories),
+        protein_g: +d3.sum(v, (d) => d.protein_g).toFixed(1),
+        carbs_g: +d3.sum(v, (d) => d.carbs_g).toFixed(1),
+        fat_g: +d3.sum(v, (d) => d.fat_g).toFixed(1),
+      }), (d) => d3.utcFormat('%Y-%m-%d')(d3.utcMonday.floor(new Date(d.date + 'T12:00:00Z'))));
+      return [...by].map(([week_start, t]) => ({
+        week_start, ...t,
+        avg_calories: Math.round(t.calories / t.days),
+        avg_protein_g: Math.round(t.protein_g / t.days),
+      })).sort((a, b) => (a.week_start < b.week_start ? -1 : 1));
+    },
+  });
+
+  const lastRow = (id) => { const s = dash.data(id); return s.status === 'ok' && s.data.length ? s.data[s.data.length - 1] : null; };
+  const txt = (id, f, fmt) => (el) => { const r = lastRow(id); el.textContent = r && r[f] != null ? fmt(r[f]) : '—'; };
+
+  dash.draw('t-cal-note', (el) => { el.textContent = fmtInt(TARGET); });
+  dash.draw('t-band-note', (el) => { el.textContent = String(CAL_BAND); });
+  dash.draw('t-pro-note', (el) => { el.textContent = String(PROTEIN_TARGET); });
+  dash.draw('t-cal', (el) => { el.textContent = fmtInt(TARGET); });
+  dash.draw('t-pro', (el) => { el.textContent = String(PROTEIN_TARGET); });
+
+  dash.draw('nut-day', (el) => {
+    const r = lastRow('day-latest');
+    el.textContent = r ? (r.date === todayStr ? `Today, ${dayName(r.date)}` : dayName(r.date)) : '—';
+  });
+  dash.draw('d-pro', txt('day-latest', 'protein_g', fmtG));
+  dash.draw('d-cal', txt('day-latest', 'calories', fmtInt));
+  dash.draw('d-carb', txt('day-latest', 'carbs_g', fmtG));
+  dash.draw('d-fat', txt('day-latest', 'fat_g', fmtG));
+
+  const meter = (field, target, color, overIsBad) => (el) => {
+    el.replaceChildren();
+    const r = lastRow('day-latest');
+    if (!r) return;
+    const i = document.createElement('i');
+    const pct = Math.min(1, r[field] / target);
+    const over = overIsBad && r[field] > (typeof overIsBad === 'number' ? overIsBad : target);
+    i.style.width = `${pct * 100}%`;
+    i.style.background = over ? 'var(--color-bad)' : color;
+    el.append(i);
+  };
+  dash.draw('b-pro', meter('protein_g', PROTEIN_TARGET, PALETTE[0], false));
+  dash.draw('b-cal', meter('calories', TARGET, PALETTE[1], CAL_MAX));
+
+  dash.draw('r-pro', (el) => {
+    const r = lastRow('day-latest');
+    if (!r) { el.textContent = '—'; el.style.color = ''; return; }
+    const left = PROTEIN_TARGET - r.protein_g;
+    el.textContent = left > 0 ? `${fmtG(left)} g still to go` : `Target hit, ${fmtG(-left)} g over`;
+    el.style.color = left > 0 ? 'var(--color-warn)' : 'var(--color-ok)';
+  });
+  dash.draw('r-cal', (el) => {
+    const r = lastRow('day-latest');
+    if (!r) { el.textContent = '—'; el.style.color = ''; return; }
+    const left = TARGET - r.calories;
+    if (r.calories > CAL_MAX) { el.textContent = `${fmtInt(-left)} over`; el.style.color = 'var(--color-bad)'; return; }
+    el.textContent = left >= 0 ? `${fmtInt(left)} left` : `On target (${fmtInt(-left)} over, within ${CAL_BAND})`;
+    el.style.color = left < 0 ? 'var(--color-ok)' : '';
+  });
+
+  dash.draw('split', (el) => {
+    el.replaceChildren();
+    const r = lastRow('day-latest');
+    if (!r) return;
+    for (const [f, c, name] of [['protein_share', PALETTE[0], 'Protein'], ['carbs_share', PALETTE[1], 'Carbs'], ['fat_share', PALETTE[2], 'Fat']]) {
+      const i = document.createElement('i');
+      i.style.width = `${r[f] * 100}%`;
+      i.style.background = c;
+      i.title = `${name}: ${d3.format('.0%')(r[f])} of calories`;
+      el.append(i);
+    }
+  });
+
+  dash.draw('wk-label', (el) => {
+    const r = lastRow('food-weeks');
+    el.textContent = r ? d3.utcFormat('%b %-d')(new Date(r.week_start + 'T12:00:00Z')) : '—';
+  });
+  dash.draw('wk-cal', txt('food-weeks', 'calories', fmtInt));
+  dash.draw('wk-cal-avg', txt('food-weeks', 'avg_calories', fmtInt));
+  dash.draw('wk-pro', txt('food-weeks', 'protein_g', fmtG));
+  dash.draw('wk-pro-avg', txt('food-weeks', 'avg_protein_g', fmtG));
+  dash.draw('wk-carb', txt('food-weeks', 'carbs_g', fmtG));
+  dash.draw('wk-fat', txt('food-weeks', 'fat_g', fmtG));
+  dash.draw('wk-days', txt('food-weeks', 'days', String));
+  dash.draw('wk-hit', (el) => {
+    const w = lastRow('food-weeks'), s = dash.data('daily-food');
+    if (!w || s.status !== 'ok') { el.textContent = '—'; return; }
+    const start = new Date(w.week_start + 'T12:00:00Z'), end = d3.utcDay.offset(start, 7);
+    const inWeek = s.data.filter((d) => { const t = new Date(d.date + 'T12:00:00Z'); return t >= start && t < end; });
+    el.textContent = String(inWeek.filter((d) => d.protein_g >= PROTEIN_TARGET).length);
+  });
+
+  const openDays = new Set(); // which days the reader has expanded, kept while the page is open
+  openDays.touched = false;
+  dash.draw('food-days', (el) => {
+    el.replaceChildren();
+    const log = dash.data('food-log'), days = dash.data('daily-food'), weeks = dash.data('food-weeks');
+    if (log.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (log.status !== 'ok' || days.status !== 'ok' || weeks.status !== 'ok') return;
+    const latestDate = days.data.length ? days.data[days.data.length - 1].date : null;
+    const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    for (const w of weeks.data) {
+      const start = new Date(w.week_start + 'T12:00:00Z'), end = d3.utcDay.offset(start, 7);
+      const block = mk('div', 'wk');
+      block.append(mk('p', 'wk-head', `Week of ${d3.utcFormat('%b %-d')(start)}`));
+      const wkDays = days.data.filter((d) => { const t = new Date(d.date + 'T12:00:00Z'); return t >= start && t < end; });
+      for (const d of wkDays) {
+        const box = mk('details', 'day');
+        if (openDays.has(d.date) || (!openDays.touched && d.date === latestDate)) box.open = true;
+        box.addEventListener('toggle', () => {
+          openDays.touched = true;
+          if (box.open) openDays.add(d.date); else openDays.delete(d.date);
+        });
+        const sum = mk('summary');
+        sum.append(mk('span', 'sum-day', dayName(d.date) + (d.date === todayStr ? ' (today)' : '')));
+        const sumStats = mk('span', 'sum-stats');
+        const sp = mk('span', '', `${fmtG(d.protein_g)} g protein`);
+        sp.style.color = d.protein_g >= PROTEIN_TARGET ? 'var(--color-ok)' : 'var(--color-warn)';
+        const sc = mk('span', '', `${fmtInt(d.calories)} cal`);
+        if (d.calories > CAL_MAX) sc.style.color = 'var(--color-bad)';
+        sumStats.append(sc, sp);
+        sum.append(sumStats);
+        box.append(sum);
+        const wrap = mk('div', 'scroll');
+        const table = mk('table', 'daytbl');
+        const cg = mk('colgroup');
+        for (const c of ['c-meal', 'c-what', 'c-num', 'c-num', 'c-num', 'c-num']) cg.append(mk('col', c));
+        table.append(cg);
+        const head = mk('tr');
+        cg.append(mk('col', 'c-num'));
+        for (const [h, c] of [['Meal', ''], ['What', ''], ['Calories', 'n'], ['Protein (g)', 'n'], ['Carbs (g)', 'n'], ['Fat (g)', 'n'], ['Sodium (mg)', 'n']]) head.append(mk('th', c, h));
+        const thead = mk('thead'); thead.append(head); table.append(thead);
+        const tb = mk('tbody');
+        for (const r of log.data.filter((x) => x.date === d.date)) {
+          const tr = mk('tr');
+          tr.append(mk('td', '', r.meal), mk('td', '', r.item), mk('td', 'n', fmtInt(Number(r.calories))),
+            mk('td', 'n', d3.format('.1f')(Number(r.protein_g))), mk('td', 'n', d3.format('.1f')(Number(r.carbs_g))), mk('td', 'n', d3.format('.1f')(Number(r.fat_g))),
+            mk('td', 'n', r.sodium_mg === '' || r.sodium_mg == null ? '?' : fmtInt(Number(r.sodium_mg))));
+          tb.append(tr);
+        }
+        const tot = mk('tr', 'total');
+        const proCell = mk('td', 'n', d3.format('.1f')(d.protein_g));
+        proCell.style.color = d.protein_g >= PROTEIN_TARGET ? 'var(--color-ok)' : 'var(--color-warn)';
+        const calCell = mk('td', 'n', fmtInt(d.calories));
+        if (d.calories > CAL_MAX) calCell.style.color = 'var(--color-bad)';
+        const naCell = mk('td', 'n', `${fmtInt(d.sodium_mg)}${d.sodium_partial ? '+' : ''}`);
+        if (d.sodium_mg > SODIUM_MAX) naCell.style.color = 'var(--color-bad)';
+        tot.append(mk('td', '', 'Day total'), mk('td', '', ''), calCell, proCell, mk('td', 'n', d3.format('.1f')(d.carbs_g)), mk('td', 'n', d3.format('.1f')(d.fat_g)), naCell);
+        tb.append(tot);
+        table.append(tb); wrap.append(table); box.append(wrap);
+        block.append(box);
+      }
+      const wt = mk('div', 'wk-total');
+      const stat = (label, value) => { const s = mk('div'); s.append(mk('span', 'lbl', label), mk('b', '', value)); return s; };
+      wt.append(
+        stat('Week total calories', fmtInt(w.calories)),
+        stat('Protein', `${fmtG(w.protein_g)} g`),
+        stat('Carbs', `${fmtG(w.carbs_g)} g`),
+        stat('Fat', `${fmtG(w.fat_g)} g`),
+        stat('Days logged', String(w.days)),
+        stat('Avg per day', `${fmtInt(w.avg_calories)} cal, ${fmtG(w.avg_protein_g)} g protein`),
+      );
+      block.append(wt);
+      el.append(block);
+    }
+  });
+
+  const dayBars = (field, target, color, label, fmtV) => (el) => {
+    const src = dash.data('daily-food');
+    el.replaceChildren();
+    if (src.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (src.status !== 'ok' || !src.data.length) return;
+    const rows = src.data;
+    const W = Math.max(260, el.clientWidth), H = 220;
+    const y = d3.scaleLinear([0, Math.max(target, d3.max(rows, (d) => d[field])) * 1.1], [H - 28, 10]).nice();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block').style('overflow', 'visible');
+    const yAx = svg.append('g').call(d3.axisLeft(y).ticks(4).tickSize(0).tickFormat(d3.format(','))).attr('font-size', null).attr('font-family', null);
+    yAx.select('.domain').remove();
+    yAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    let mL = 0; yAx.selectAll('text').each(function () { mL = Math.max(mL, this.getComputedTextLength()); });
+    mL += 12;
+    yAx.attr('transform', `translate(${mL - 6},0)`);
+    const fmtDay = (s) => d3.utcFormat('%a %-d')(new Date(s + 'T12:00:00Z'));
+    const x = d3.scaleBand(rows.map((d) => d.date), [mL, W - 8]).padding(0.35);
+    svg.insert('g', ':first-child').selectAll('line').data(y.ticks(4)).join('line')
+      .attr('x1', mL).attr('x2', W - 8).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+    const xAx = svg.append('g').attr('transform', `translate(0,${H - 28})`)
+      .call(d3.axisBottom(x).tickFormat(fmtDay).tickSizeOuter(0)).attr('font-size', null).attr('font-family', null);
+    xAx.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('.tick line').remove();
+    xAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    const bw = Math.min(32, x.bandwidth());
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
+    svg.append('g').selectAll('rect').data(rows).join('rect')
+      .attr('x', (d) => x(d.date) + (x.bandwidth() - bw) / 2).attr('width', bw)
+      .attr('y', (d) => y(d[field])).attr('height', (d) => y(0) - y(d[field]))
+      .attr('rx', 4).attr('fill', color)
+      .on('pointerenter', function (ev, d) {
+        d3.select(this).attr('stroke', 'var(--color-fg)').attr('stroke-width', 1.5);
+        tip.selectAll('*').remove();
+        tip.append('div').attr('class', 'd').text(dayName(d.date));
+        tip.append('div').text(`${fmtV(d[field])} ${label}`);
+        const tw = tip.node().offsetWidth;
+        const cx = ((x(d.date) + x.bandwidth() / 2) / W) * el.clientWidth;
+        tip.style('left', `${Math.min(Math.max(0, cx - tw / 2), el.clientWidth - tw)}px`).style('top', `${(y(d[field]) / H) * el.clientHeight - 52}px`).style('opacity', 1);
+      })
+      .on('pointerleave', function () { d3.select(this).attr('stroke', null); tip.style('opacity', 0); });
+    svg.append('line').attr('x1', mL).attr('x2', W - 8).attr('y1', y(target)).attr('y2', y(target))
+      .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+  };
+  dash.draw('pro-chart', dayBars('protein_g', PROTEIN_TARGET, PALETTE[0], 'g protein', fmtG));
+
+  dash.draw('cal-chart', dayBars('calories', TARGET, PALETTE[1], 'calories', fmtInt));
+
+  dash.calc('walk-totals', {
+    inputs: ['walks'],
+    title: 'Walk totals',
+    description: 'Number of walks, total minutes and estimated calories burned.',
+    fn: (walks) => [{
+      walks: walks.length,
+      minutes: d3.sum(walks, (d) => Number(d.minutes)),
+      est_calories: d3.sum(walks, (d) => Number(d.est_calories)),
+    }],
+  });
+  const wt = (field) => (el) => {
+    const s = dash.data('walk-totals');
+    el.textContent = s.status === 'ok' && s.data.length ? d3.format(',')(s.data[0][field]) : '—';
+  };
+  dash.draw('walk-count', wt('walks'));
+  dash.draw('walk-min', wt('minutes'));
+  dash.draw('walk-cal', wt('est_calories'));
+
+  dash.draw('walk-rows', (tb) => {
+    const w = dash.data('walks');
+    tb.replaceChildren();
+    if (w.status !== 'ok') return;
+    const fmtDay = (s) => d3.utcFormat('%a %b %-d')(new Date(s + 'T12:00:00Z'));
+    for (const r of [...w.data].sort((a, b) => (a.date < b.date ? -1 : 1))) {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.date;
+      const cells = [[fmtDay(r.date), ''], [r.minutes, 'n'], [r.incline_pct, 'n'], [r.speed_mph, 'n'], [r.est_calories, 'n']];
+      for (const [t, cls] of cells) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+      tb.append(tr);
+    }
+  });
+
+  const VISC_GOAL = 10; // visceral fat level to get under
+  document.querySelectorAll('.legend .ib-m').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
+  document.querySelectorAll('.legend .ib-f').forEach((e) => e.style.setProperty('--sw', PALETTE[2]));
+  dash.draw('visc-goal', (el) => { el.textContent = String(VISC_GOAL); });
+
+  // Tape card: show a plain message until the first entry, and hide "since first" lines until there are two.
+  dash.onData(() => {
+    const t = dash.data('tape');
+    const n = t.status === 'ok' ? t.data.length : null;
+    document.querySelectorAll('.tape-empty').forEach((e) => { e.hidden = n !== 0; });
+    document.querySelectorAll('.tape-body').forEach((e) => { e.hidden = n === 0; });
+    document.querySelectorAll('#tape .chg').forEach((e) => { e.hidden = n !== null && n < 2; });
+  });
+
+  dash.calc('inbody-latest', {
+    inputs: ['inbody'],
+    title: 'Latest InBody scan',
+    description: 'Latest value of each InBody reading and its change from the scan before that had it.',
+    fn: (inbody) => {
+      const r = [...inbody].sort((a, b) => (a.date < b.date ? -1 : 1));
+      if (!r.length) return [];
+      const pick = (f) => {
+        const v = r.map((d) => (d[f] === '' || d[f] == null ? NaN : Number(d[f]))).filter((n) => !isNaN(n));
+        if (!v.length) return [null, null];
+        return [v[v.length - 1], v.length > 1 ? +(v[v.length - 1] - v[v.length - 2]).toFixed(1) : null];
+      };
+      const [mm, mmc] = pick('muscle_lb'), [fm, fmc] = pick('fat_mass_lb'), [bf, bfc] = pick('body_fat_pct'), [vf] = pick('visceral_fat');
+      return [{ muscle_lb: mm, muscle_change: mmc, fat_mass_lb: fm, fat_mass_change: fmc, body_fat_pct: bf, body_fat_change: bfc, visceral_fat: vf }];
+    },
+  });
+
+  dash.calc('tape-latest', {
+    inputs: ['tape'],
+    title: 'Latest tape measurements',
+    description: 'Latest waist, chest and arm (average of left and right), and the change from the first entry of each.',
+    fn: (tape) => {
+      const avgLR = (d, f) => { const v = [d[f + '_l_in'], d[f + '_r_in']].filter((x) => x !== '' && x != null).map(Number); return v.length ? d3.mean(v) : (d[f + '_in'] ?? ''); };
+      const r = [...tape].map((d) => ({ ...d, arm_in: avgLR(d, 'arm') })).sort((a, b) => (a.date < b.date ? -1 : 1));
+      if (!r.length) return [];
+      const pick = (f) => {
+        const v = r.map((d) => (d[f] === '' || d[f] == null ? NaN : Number(d[f]))).filter((n) => !isNaN(n));
+        if (!v.length) return [null, null];
+        return [v[v.length - 1], v.length > 1 ? +(v[v.length - 1] - v[0]).toFixed(1) : null];
+      };
+      const [w, wc] = pick('waist_in'), [c, cc] = pick('chest_in'), [a, ac] = pick('arm_in');
+      return [{ waist_in: w, waist_change: wc, chest_in: c, chest_change: cc, arm_in: a, arm_change: ac }];
+    },
+  });
+
+  const mVal = (src, field, digits = 1) => (el) => {
+    const s = dash.data(src);
+    const v = s.status === 'ok' && s.data.length ? s.data[0][field] : null;
+    el.textContent = v == null ? '—' : Number(v).toFixed(digits);
+  };
+  const mChg = (src, field, goodIfUp) => (el) => {
+    const s = dash.data(src);
+    const v = s.status === 'ok' && s.data.length ? s.data[0][field] : null;
+    el.textContent = v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(1);
+    el.style.color = v == null || v === 0 ? '' : (v > 0) === goodIfUp ? 'var(--color-ok)' : 'var(--color-bad)';
+  };
+  dash.draw('ib-mm', mVal('inbody-latest', 'muscle_lb'));
+  dash.draw('lede-muscle', mVal('inbody-latest', 'muscle_lb'));
+  dash.draw('ib-mm-chg', mChg('inbody-latest', 'muscle_change', true));
+  dash.draw('ib-fm', mVal('inbody-latest', 'fat_mass_lb'));
+  dash.draw('ib-fm-chg', mChg('inbody-latest', 'fat_mass_change', false));
+  dash.draw('ib-bf', mVal('inbody-latest', 'body_fat_pct'));
+  dash.draw('ib-bf-chg', mChg('inbody-latest', 'body_fat_change', false));
+  dash.draw('ib-vf', (el) => {
+    const s = dash.data('inbody-latest');
+    const v = s.status === 'ok' && s.data.length ? s.data[0].visceral_fat : null;
+    el.textContent = v == null ? '—' : String(v);
+    el.style.color = v == null ? '' : v < VISC_GOAL ? 'var(--color-ok)' : 'var(--color-bad)';
+  });
+  dash.draw('t-waist', mVal('tape-latest', 'waist_in'));
+  dash.draw('t-waist-chg', mChg('tape-latest', 'waist_change', false));
+  dash.draw('t-chest', mVal('tape-latest', 'chest_in'));
+  dash.draw('t-chest-chg', mChg('tape-latest', 'chest_change', true));
+  dash.draw('t-arm', mVal('tape-latest', 'arm_in'));
+  dash.draw('t-arm-chg', mChg('tape-latest', 'arm_change', true));
+
+  dash.draw('ib-chart', (el) => {
+    const src = dash.data('inbody');
+    el.replaceChildren();
+    if (src.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (src.status !== 'ok' || !src.data.length) return;
+    const num = (v) => (v === '' || v == null ? null : Number(v));
+    const rows = src.data.map((d) => ({ date: new Date(d.date + 'T12:00:00Z'), m: num(d.muscle_lb), f: num(d.fat_mass_lb), machine: d.machine }))
+      .sort((a, b) => a.date - b.date);
+    const series = [
+      { key: 'm', name: 'Skeletal muscle', color: PALETTE[0] },
+      { key: 'f', name: 'Fat mass', color: PALETTE[2] },
+    ];
+    const W = Math.max(280, el.clientWidth), H = 280;
+    const vals = rows.flatMap((r) => [r.m, r.f]).filter((v) => v != null);
+    const y = d3.scaleLinear([Math.floor(d3.min(vals) / 10) * 10 - 10, Math.ceil(d3.max(vals) / 10) * 10 + 10], [H - 28, 10]).nice();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block').style('overflow', 'visible');
+    const yAx = svg.append('g').call(d3.axisLeft(y).ticks(5).tickSize(0)).attr('font-size', null).attr('font-family', null);
+    yAx.select('.domain').remove();
+    yAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    let mL = 0; yAx.selectAll('text').each(function () { mL = Math.max(mL, this.getComputedTextLength()); });
+    mL += 12;
+    yAx.attr('transform', `translate(${mL - 6},0)`);
+    const first = rows[0].date, last = rows[rows.length - 1].date;
+    const pad = Math.max(3 * 864e5, (last - first) * 0.04);
+    const x = d3.scaleUtc([new Date(+first - pad), new Date(+last + pad)], [mL, W - 8]);
+    svg.insert('g', ':first-child').selectAll('line').data(y.ticks(5)).join('line')
+      .attr('x1', mL).attr('x2', W - 8).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+    const xAx = svg.append('g').attr('transform', `translate(0,${H - 28})`)
+      .call(d3.axisBottom(x).ticks(Math.max(2, Math.floor(W / 90))).tickFormat(d3.utcFormat('%b %-d')).tickSizeOuter(0))
+      .attr('font-size', null).attr('font-family', null);
+    xAx.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('.tick line').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    for (const s of series) {
+      const pts = rows.filter((r) => r[s.key] != null);
+      svg.append('path').datum(pts).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2)
+        .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')
+        .attr('d', d3.line().x((r) => x(r.date)).y((r) => y(r[s.key])));
+      svg.append('g').selectAll('circle').data(pts).join('circle')
+        .attr('cx', (r) => x(r.date)).attr('cy', (r) => y(r[s.key])).attr('r', 4.5)
+        .attr('fill', s.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    }
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
+    const fmtD = d3.utcFormat('%a, %b %-d');
+    const rule = svg.append('line').attr('y1', 10).attr('y2', H - 28).attr('stroke', 'var(--cds-chart-axis)').style('opacity', 0);
+    const delaunay = d3.Delaunay.from(rows, (r) => x(r.date), () => 0);
+    svg.append('rect').attr('x', mL).attr('y', 0).attr('width', W - 8 - mL).attr('height', H - 28).attr('fill', 'transparent')
+      .on('pointermove', function (ev) {
+        const [px] = d3.pointer(ev, this);
+        const r = rows[delaunay.find(px, 0)];
+        rule.attr('x1', x(r.date)).attr('x2', x(r.date)).style('opacity', 1);
+        tip.selectAll('*').remove();
+        tip.append('div').attr('class', 'd').text(`${fmtD(r.date)} · ${r.machine}`);
+        for (const s of series) {
+          const line = tip.append('div');
+          line.append('span').style('display', 'inline-block').style('width', '8px').style('height', '8px')
+            .style('border-radius', '50%').style('margin-right', '6px').style('background', s.color);
+          line.append('span').text(`${s.name}: ${r[s.key] == null ? 'not recorded' : `${r[s.key].toFixed(1)} lb`}`);
+        }
+        const tw = tip.node().offsetWidth;
+        const cx = (x(r.date) / W) * el.clientWidth;
+        tip.style('left', `${Math.min(Math.max(0, cx - tw / 2), el.clientWidth - tw)}px`).style('top', '0px').style('opacity', 1);
+      })
+      .on('pointerleave', () => { rule.style('opacity', 0); tip.style('opacity', 0); });
+  });
+
+  const fmtRowDay = (s) => d3.utcFormat('%a %b %-d, %Y')(new Date(s + 'T12:00:00Z'));
+  const n1 = (v) => (v === '' || v == null ? '' : Number(v).toFixed(1));
+  dash.draw('ib-rows', (tb) => {
+    const m = dash.data('inbody');
+    tb.replaceChildren();
+    if (m.status !== 'ok') return;
+    for (const r of [...m.data].sort((a, b) => (a.date < b.date ? -1 : 1))) {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.date;
+      const cells = [
+        [fmtRowDay(r.date), ''], [r.machine, 'hide-sm'], [r.time, 'hide-sm'], [n1(r.weight_lb), 'n'], [n1(r.muscle_lb), 'n'],
+        [n1(r.fat_mass_lb), 'n'], [n1(r.body_fat_pct), 'n'], [r.visceral_fat, 'n'],
+      ];
+      for (const [t, cls] of cells) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+      tb.append(tr);
+    }
+  });
+
+  const lr = (a, b) => (a === '' || a == null) && (b === '' || b == null) ? '—' : `${n1(a)} / ${n1(b)}`;
+  dash.draw('t-rows', (tb) => {
+    const m = dash.data('tape');
+    tb.replaceChildren();
+    if (m.status !== 'ok') return;
+    for (const r of [...m.data].sort((a, b) => (a.date < b.date ? -1 : 1))) {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.date;
+      const cells = [
+        [fmtRowDay(r.date) + (r.time ? `, ${r.time}` : ''), ''], [n1(r.waist_in), 'n'], [n1(r.hips_in), 'n'], [n1(r.chest_in), 'n'], [n1(r.shoulders_in), 'n'], [n1(r.neck_in), 'n'],
+        [lr(r.arm_l_in, r.arm_r_in), 'n'], [lr(r.thigh_l_in, r.thigh_r_in), 'n'], [lr(r.calf_l_in, r.calf_r_in), 'n'],
+      ];
+      for (const [t, cls] of cells) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
+      tb.append(tr);
+    }
+  });
+
+  dash.draw('meals', (el) => {
+    const m = dash.data('meal-menu');
+    el.replaceChildren();
+    if (m.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (m.status !== 'ok') return;
+    const f1 = d3.format('.1f');
+    const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const weeks = d3.groups(m.data, (r) => r.week_start).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+    for (const [wk, rows] of weeks) {
+      const start = new Date(wk + 'T12:00:00Z'), end = d3.utcDay.offset(start, 6);
+      const block = mk('div', 'wk');
+      block.append(mk('p', 'wk-head', `Week of ${d3.utcFormat('%b %-d')(start)} to ${d3.utcFormat('%b %-d, %Y')(end)}`));
+      const wrap = mk('div', 'scroll');
+      const table = mk('table', 'daytbl');
+      const cg = mk('colgroup');
+      for (const c of ['c-meal', 'c-what', 'c-num', 'c-num', 'c-num', 'c-num']) cg.append(mk('col', c));
+      table.append(cg);
+      const head = mk('tr');
+      for (const [h, c] of [['Meal', ''], ['Carb and veggie', ''], ['Calories', 'n'], ['Protein (g)', 'n'], ['Carbs (g)', 'n'], ['Fat (g)', 'n']]) head.append(mk('th', c, h));
+      const thead = mk('thead'); thead.append(head); table.append(thead);
+      const tb = mk('tbody');
+      for (const r of rows) {
+        const tr = mk('tr');
+        tr.append(mk('td', '', `${r.meal} (x${r.qty})`), mk('td', '', `${r.carb}, ${r.veggie}`),
+          mk('td', 'n', d3.format(',')(Number(r.calories))), mk('td', 'n', f1(Number(r.protein_g))),
+          mk('td', 'n', f1(Number(r.carbs_g))), mk('td', 'n', f1(Number(r.fat_g))));
+        tb.append(tr);
+      }
+      table.append(tb); wrap.append(table); block.append(wrap);
+      el.append(block);
+    }
+  });
+
+  // ---------- New sections: shared constants and helpers ----------
+  const SLEEP_GOAL = 7; // hours a night
+  const PLAN_START = '2026-11-16'; // first Monday of the new Chopped Up order
+  const dayShort = (s) => d3.utcFormat('%b %-d')(new Date(s + 'T12:00:00Z'));
+  const mkEl = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const numOrNull = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+  document.querySelectorAll('.legend .avg7').forEach((e) => e.style.setProperty('--sw', PALETTE[2]));
+  document.querySelectorAll('.legend .slb').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
+  document.querySelectorAll('.legend .wab').forEach((e) => e.style.setProperty('--sw', PALETTE[1]));
+
+  // ---------- Weight: 7-day average ----------
+  dash.calc('weight-avg', {
+    inputs: ['weigh-ins'],
+    title: '7-day average weight',
+    description: 'For each weigh-in, the average of all weigh-ins in the 7 days ending that day.',
+    fn: (weighIns) => {
+      const r = weighIns.map((d) => ({ date: d.date, w: Number(d.weight_lb), t: Date.parse(d.date) })).sort((a, b) => a.t - b.t);
+      return r.map((p) => {
+        const win = r.filter((q) => q.t <= p.t && q.t > p.t - 7 * 864e5);
+        return { date: p.date, weight_lb: p.w, avg7_lb: +d3.mean(win, (q) => q.w).toFixed(1) };
+      });
+    },
+  });
+  dash.calc('weight-week', {
+    inputs: ['weigh-ins'],
+    title: 'This week vs. last week',
+    description: 'Average of weigh-ins in the 7 days ending with the latest one, and its change from the 7 days before that.',
+    fn: (weighIns) => {
+      const r = weighIns.map((d) => ({ w: Number(d.weight_lb), t: Date.parse(d.date) }));
+      if (!r.length) return [];
+      const last = d3.max(r, (p) => p.t), day = 864e5;
+      const cur = r.filter((p) => p.t > last - 7 * day), prev = r.filter((p) => p.t <= last - 7 * day && p.t > last - 14 * day);
+      const avg = +d3.mean(cur, (p) => p.w).toFixed(1);
+      return [{ avg_lb: avg, change_lb: prev.length ? +(avg - d3.mean(prev, (p) => p.w)).toFixed(1) : null }];
+    },
+  });
+  dash.draw('wk-avg', mVal('weight-week', 'avg_lb'));
+  dash.draw('wk-avg-chg', mChg('weight-week', 'change_lb', false));
+
+  // ---------- Card summaries (shown when a card is folded) ----------
+  const peekRow = (id, fmt, emptyText) => (el) => {
+    const s = dash.data(id);
+    if (s.status !== 'ok') { el.textContent = '—'; return; }
+    const r = s.data.length ? s.data[s.data.length - 1] : null;
+    const t = r ? fmt(r) : null;
+    el.textContent = t ?? emptyText;
+  };
+  dash.draw('pk-inbody', peekRow('inbody-latest', (r) => (r.muscle_lb == null ? null
+    : `Muscle ${one(r.muscle_lb)} lb` + (r.fat_mass_lb != null ? ` · Fat ${one(r.fat_mass_lb)} lb` : '')), 'No scans yet'));
+  dash.draw('pk-strength', peekRow('strength-stats', (r) => `${r.sessions} session${r.sessions === 1 ? '' : 's'}, last ${dayShort(r.last_date)}`, 'No sessions yet'));
+  dash.draw('pk-tape', peekRow('tape-latest', (r) => (r.waist_in != null ? `Waist ${one(r.waist_in)} in` : 'Logged'), 'Not started'));
+  dash.draw('pk-weight', peekRow('weight-week', (r) => `7-day avg ${one(r.avg_lb)} lb`, 'No weigh-ins yet'));
+  dash.draw('pk-nutrition', peekRow('day-latest', (r) => `${r.date === todayStr ? 'Today' : dayShort(r.date)}: ${fmtInt(r.calories)} cal, ${fmtG(r.protein_g)} g protein`, 'Nothing logged'));
+  dash.draw('pk-cardio', peekRow('walk-totals', (r) => (r.walks ? `${r.walks} walk${r.walks === 1 ? '' : 's'}, ${fmtInt(r.minutes)} min` : null), 'None yet'));
+  dash.draw('pk-sleep', peekRow('habit-stats', (r) => (r.sleep_avg7 != null ? `Avg ${one(r.sleep_avg7)} h, last 7 nights` : null), 'Not logged yet'));
+  dash.draw('pk-water', peekRow('habit-stats', (r) => (r.water_avg7 != null ? `Avg ${fmtInt(Math.round(r.water_avg7))} oz a day` : null), 'Not logged yet'));
+  dash.draw('pk-photos', (el) => {
+    const s = dash.data('photos');
+    if (s.status !== 'ok') { el.textContent = '—'; return; }
+    const dates = [...new Set(s.data.map((r) => r.date))].sort();
+    el.textContent = dates.length ? `${dates.length} set${dates.length === 1 ? '' : 's'}, latest ${dayShort(dates[dates.length - 1])}` : 'No photos yet';
+  });
+  dash.draw('pk-meals', (el) => {
+    const s = dash.data('meal-menu');
+    if (s.status !== 'ok') { el.textContent = '—'; return; }
+    const w = d3.max(s.data, (r) => r.week_start);
+    el.textContent = w ? `Latest: week of ${dayShort(w)}` : 'No orders yet';
+  });
+  dash.draw('pk-plan', (el) => {
+    const s = dash.data('daily-food');
+    if (todayStr < PLAN_START) { el.textContent = `Starts ${dayShort(PLAN_START)}`; return; }
+    const n = s.status === 'ok' ? s.data.filter((d) => d.date >= PLAN_START).length : 0;
+    el.textContent = `${n} day${n === 1 ? '' : 's'} compared`;
+  });
+
+  // ---------- Show a plain message on cards that have no entries yet ----------
+  dash.onData(() => {
+    const toggle = (emptySel, bodySel, isEmpty) => {
+      document.querySelectorAll(emptySel).forEach((e) => { e.hidden = isEmpty !== true; });
+      if (bodySel) document.querySelectorAll(bodySel).forEach((e) => { e.hidden = isEmpty === true; });
+    };
+    const st = dash.data('strength');
+    toggle('.str-empty', '.str-body', st.status === 'ok' ? st.data.length === 0 : null);
+    const h = dash.data('habits');
+    const hasF = (f) => (h.status === 'ok' ? !h.data.some((r) => numOrNull(r[f]) != null) : null);
+    toggle('.sleep-empty', '.sleep-body', hasF('sleep_hr'));
+    toggle('.water-empty', '.water-body', hasF('water_oz'));
+    const ph = dash.data('photos');
+    toggle('.photos-empty', null, ph.status === 'ok' ? ph.data.length === 0 : null);
+    const ib = dash.data('inbody');
+    const balF = ['arm_r_pct', 'arm_l_pct', 'trunk_pct', 'leg_r_pct', 'leg_l_pct'];
+    toggle('.bal-empty', '.bal', ib.status === 'ok' ? !ib.data.some((r) => balF.some((f) => numOrNull(r[f]) != null)) : null);
+    const df = dash.data('daily-food');
+    toggle('.plan-empty', '.plan-body', df.status === 'ok' ? !df.data.some((d) => d.date >= PLAN_START) : null);
+  });
+
+  // ---------- InBody: muscle balance ----------
+  dash.draw('ib-balance', (el) => {
+    el.replaceChildren();
+    const s = dash.data('inbody');
+    if (s.status !== 'ok') return;
+    const parts = [['arm_r_pct', 'Right arm'], ['arm_l_pct', 'Left arm'], ['trunk_pct', 'Trunk'], ['leg_r_pct', 'Right leg'], ['leg_l_pct', 'Left leg']];
+    const rows = [...s.data].sort((a, b) => (a.date < b.date ? -1 : 1));
+    const r = [...rows].reverse().find((x) => parts.some(([f]) => numOrNull(x[f]) != null)); // latest scan that has it
+    if (!r) return;
+    const MAX = 150;
+    el.append(mkEl('p', 'chg', `From the ${dayShort(r.date)} scan`));
+    for (const [f, label] of parts) {
+      const v = numOrNull(r[f]);
+      const row = mkEl('div', 'bal-row');
+      const track = mkEl('div', 'bal-track');
+      if (v != null) {
+        const fill = mkEl('div', 'bal-fill');
+        fill.style.width = `${Math.min(v, MAX) / MAX * 100}%`;
+        fill.style.background = v >= 100 ? PALETTE[0] : 'var(--color-warn)';
+        track.append(fill);
+      }
+      const ideal = mkEl('div', 'bal-ideal');
+      ideal.style.left = `${100 / MAX * 100}%`;
+      track.append(ideal);
+      row.append(mkEl('span', '', label), track, mkEl('span', 'n', v == null ? '' : `${Math.round(v)}%`));
+      el.append(row);
+    }
+  });
+
+  // ---------- Strength log ----------
+  dash.calc('strength-stats', {
+    inputs: ['strength'],
+    title: 'Strength log totals',
+    description: 'Number of training days, number of different exercises and the latest training day.',
+    fn: (strength) => {
+      if (!strength.length) return [];
+      const dates = [...new Set(strength.map((d) => d.date))].sort();
+      return [{ sessions: dates.length, exercises: new Set(strength.map((d) => d.exercise.trim().toLowerCase())).size, last_date: dates[dates.length - 1] }];
+    },
+  });
+  dash.calc('strength-best', {
+    inputs: ['strength'],
+    title: 'Best weight by exercise',
+    description: 'For each exercise, the top weight on its first day, the heaviest weight logged, and the change between them.',
+    fn: (strength) => {
+      const rows = strength.filter((d) => d.weight_lb !== '' && !isNaN(Number(d.weight_lb)));
+      return d3.groups(rows, (d) => d.exercise.trim()).map(([exercise, v]) => {
+        const firstDate = d3.min(v, (d) => d.date);
+        const first = d3.max(v.filter((d) => d.date === firstDate), (d) => Number(d.weight_lb));
+        const best = d3.greatest(v, (d) => Number(d.weight_lb));
+        return { exercise, first_lb: first, best_lb: Number(best.weight_lb), best_date: best.date, change_lb: +(Number(best.weight_lb) - first).toFixed(1) };
+      }).sort((a, b) => (a.exercise < b.exercise ? -1 : 1));
+    },
+  });
+  dash.draw('str-sessions', txt('strength-stats', 'sessions', String));
+  dash.draw('str-ex', txt('strength-stats', 'exercises', String));
+  dash.draw('str-last', txt('strength-stats', 'last_date', dayShort));
+  dash.draw('str-best', (tb) => {
+    tb.replaceChildren();
+    const s = dash.data('strength-best');
+    if (s.status !== 'ok') return;
+    for (const r of s.data) {
+      const tr = mkEl('tr');
+      tr.dataset.key = r.exercise;
+      const chg = mkEl('td', 'n', r.change_lb > 0 ? `+${one(r.change_lb)}` : one(r.change_lb));
+      if (r.change_lb > 0) chg.style.color = 'var(--color-ok)';
+      tr.append(mkEl('td', '', r.exercise), mkEl('td', 'n', one(r.first_lb)), mkEl('td', 'n', one(r.best_lb)), chg, mkEl('td', 'hide-sm', dayShort(r.best_date)));
+      tb.append(tr);
+    }
+  });
+  const openSessions = new Set();
+  openSessions.touched = false;
+  dash.draw('str-sessions-log', (el) => {
+    el.replaceChildren();
+    const s = dash.data('strength');
+    if (s.status !== 'ok' || !s.data.length) return;
+    const days = d3.groups(s.data, (d) => d.date).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+    const wrapAll = mkEl('div', 'wk');
+    days.forEach(([date, v], i) => {
+      const box = mkEl('details', 'day');
+      if (openSessions.has(date) || (!openSessions.touched && i === days.length - 1)) box.open = true;
+      box.addEventListener('toggle', () => { openSessions.touched = true; if (box.open) openSessions.add(date); else openSessions.delete(date); });
+      const sum = mkEl('summary');
+      sum.append(mkEl('span', 'sum-day', dayName(date)), mkEl('span', 'sum-stats', `${v.length} exercise${v.length === 1 ? '' : 's'}`));
+      box.append(sum);
+      const wrap = mkEl('div', 'scroll');
+      const table = mkEl('table', 'daytbl');
+      const cg = mkEl('colgroup');
+      for (const c of ['c-ex', 'c-num', 'c-num', 'c-num', 'c-what']) cg.append(mkEl('col', c));
+      table.append(cg);
+      const head = mkEl('tr');
+      for (const [h, c] of [['Exercise', ''], ['Weight (lb)', 'n'], ['Reps assigned', 'n'], ['Reps done', 'n'], ['Comments', '']]) head.append(mkEl('th', c, h));
+      const thead = mkEl('thead'); thead.append(head); table.append(thead);
+      const tb = mkEl('tbody');
+      for (const r of v) {
+        const tr = mkEl('tr');
+        const done = mkEl('td', 'n', r.reps_done || '');
+        const a = numOrNull(r.reps_assigned), d = numOrNull(r.reps_done);
+        if (a != null && d != null) done.style.color = d >= a ? 'var(--color-ok)' : 'var(--color-warn)';
+        tr.append(mkEl('td', '', r.exercise), mkEl('td', 'n', r.weight_lb), mkEl('td', 'n', r.reps_assigned || ''), done, mkEl('td', 'cmt', r.notes || ''));
+        tb.append(tr);
+      }
+      table.append(tb); wrap.append(table); box.append(wrap);
+      wrapAll.append(box);
+    });
+    el.append(wrapAll);
+  });
+
+  // ---------- Sleep and water ----------
+  dash.calc('habit-stats', {
+    inputs: ['habits'],
+    title: 'Sleep and water averages',
+    description: 'Average hours slept and ounces of water over the 7 days ending with the latest entry.',
+    fn: (habits) => {
+      if (!habits.length) return [];
+      const r = habits.map((d) => ({ t: Date.parse(d.date), s: d.sleep_hr === '' ? null : Number(d.sleep_hr), w: d.water_oz === '' ? null : Number(d.water_oz) }));
+      const last = d3.max(r, (p) => p.t);
+      const win = r.filter((p) => p.t > last - 7 * 864e5);
+      const sl = win.filter((p) => p.s != null && !isNaN(p.s)), wa = win.filter((p) => p.w != null && !isNaN(p.w));
+      return [{ sleep_avg7: sl.length ? +d3.mean(sl, (p) => p.s).toFixed(1) : null, water_avg7: wa.length ? Math.round(d3.mean(wa, (p) => p.w)) : null }];
+    },
+  });
+  dash.draw('sleep-goal', (el) => { el.textContent = String(SLEEP_GOAL); });
+  dash.draw('sl-avg', mVal('habit-stats', 'sleep_avg7'));
+  dash.draw('wa-avg', (el) => { const r = lastRow('habit-stats'); el.textContent = r && r.water_avg7 != null ? fmtInt(r.water_avg7) : '—'; });
+  dash.draw('sl-short', (el) => {
+    const s = dash.data('habits');
+    if (s.status !== 'ok' || !s.data.length) { el.textContent = '—'; return; }
+    const last = d3.max(s.data, (d) => Date.parse(d.date));
+    const win = s.data.filter((d) => Date.parse(d.date) > last - 7 * 864e5 && numOrNull(d.sleep_hr) != null);
+    const n = win.filter((d) => Number(d.sleep_hr) < SLEEP_GOAL).length;
+    el.textContent = `${n} of ${win.length}`;
+    el.style.color = n ? 'var(--color-warn)' : 'var(--color-ok)';
+  });
+  const habitBars = (field, goal, color, label, fmtV) => (el) => {
+    const src = dash.data('habits');
+    el.replaceChildren();
+    if (src.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (src.status !== 'ok') return;
+    const rows = src.data.filter((d) => numOrNull(d[field]) != null).map((d) => ({ date: d.date, v: Number(d[field]) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+    if (!rows.length) return;
+    const W = Math.max(260, el.clientWidth), H = 200;
+    const y = d3.scaleLinear([0, Math.max(goal || 0, d3.max(rows, (d) => d.v)) * 1.15], [H - 28, 10]).nice();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block').style('overflow', 'visible');
+    const yAx = svg.append('g').call(d3.axisLeft(y).ticks(4).tickSize(0).tickFormat(d3.format(','))).attr('font-size', null).attr('font-family', null);
+    yAx.select('.domain').remove();
+    yAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    let mL = 0; yAx.selectAll('text').each(function () { mL = Math.max(mL, this.getComputedTextLength()); });
+    mL += 12;
+    yAx.attr('transform', `translate(${mL - 6},0)`);
+    const x = d3.scaleBand(rows.map((d) => d.date), [mL, W - 8]).padding(0.35);
+    svg.insert('g', ':first-child').selectAll('line').data(y.ticks(4)).join('line')
+      .attr('x1', mL).attr('x2', W - 8).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+    const xAx = svg.append('g').attr('transform', `translate(0,${H - 28})`)
+      .call(d3.axisBottom(x).tickFormat((s) => d3.utcFormat('%a %-d')(new Date(s + 'T12:00:00Z'))).tickSizeOuter(0)).attr('font-size', null).attr('font-family', null);
+    xAx.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('.tick line').remove();
+    xAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    if (rows.length > Math.floor((W - mL) / 44)) {
+      const every = Math.ceil(rows.length / Math.floor((W - mL) / 44));
+      xAx.selectAll('.tick').filter((d, i) => i % every !== 0).remove();
+    }
+    const bw = Math.min(32, x.bandwidth());
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
+    svg.append('g').selectAll('rect').data(rows).join('rect')
+      .attr('x', (d) => x(d.date) + (x.bandwidth() - bw) / 2).attr('width', bw)
+      .attr('y', (d) => y(d.v)).attr('height', (d) => y(0) - y(d.v))
+      .attr('rx', 4).attr('fill', (d) => (goal && d.v < goal ? 'var(--color-warn)' : color))
+      .on('pointerenter', function (ev, d) {
+        d3.select(this).attr('stroke', 'var(--color-fg)').attr('stroke-width', 1.5);
+        tip.selectAll('*').remove();
+        tip.append('div').attr('class', 'd').text(dayName(d.date));
+        tip.append('div').text(`${fmtV(d.v)} ${label}`);
+        const tw = tip.node().offsetWidth;
+        const cx = ((x(d.date) + x.bandwidth() / 2) / W) * el.clientWidth;
+        tip.style('left', `${Math.min(Math.max(0, cx - tw / 2), el.clientWidth - tw)}px`).style('top', `${(y(d.v) / H) * el.clientHeight - 52}px`).style('opacity', 1);
+      })
+      .on('pointerleave', function () { d3.select(this).attr('stroke', null); tip.style('opacity', 0); });
+    if (goal) {
+      svg.append('line').attr('x1', mL).attr('x2', W - 8).attr('y1', y(goal)).attr('y2', y(goal))
+        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+    }
+  };
+  dash.draw('sleep-chart', habitBars('sleep_hr', SLEEP_GOAL, PALETTE[0], 'hours', one));
+  dash.draw('water-chart', habitBars('water_oz', null, PALETTE[1], 'oz', fmtInt));
+
+  // ---------- Progress photos ----------
+  dash.draw('photo-sets', (el) => {
+    el.replaceChildren();
+    const s = dash.data('photos');
+    if (s.status !== 'ok' || !s.data.length) return;
+    for (const [date, v] of d3.groups(s.data, (d) => d.date).sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+      const block = mkEl('div', 'wk');
+      block.append(mkEl('p', 'wk-head', dayName(date)));
+      const grid = mkEl('div', 'photo-grid');
+      for (const r of v) {
+        if (typeof r.src !== 'string' || !r.src.startsWith('data:image/')) continue;
+        const fig = mkEl('figure');
+        const img = document.createElement('img');
+        img.src = r.src;
+        img.alt = `${r.pose} view, ${dayShort(date)}`;
+        img.loading = 'lazy';
+        fig.append(img, mkEl('figcaption', '', r.pose));
+        grid.append(fig);
+      }
+      block.append(grid);
+      el.append(block);
+    }
+  });
+
+  // ---------- Plan vs. actual ----------
+  dash.draw('plan-start', (el) => { el.textContent = dayName(PLAN_START); });
+  dash.draw('plan-start-2', (el) => { el.textContent = dayName(PLAN_START); });
+  const planTotals = () => {
+    const p = dash.data('plan');
+    if (p.status !== 'ok' || !p.data.length) return null;
+    const sum = (f) => d3.sum(p.data, (d) => Number(d[f]));
+    return { calories: sum('calories'), protein_g: +sum('protein_g').toFixed(1), carbs_g: +sum('carbs_g').toFixed(1), fat_g: +sum('fat_g').toFixed(1) };
+  };
+  dash.draw('plan-rows', (tb) => {
+    tb.replaceChildren();
+    const p = dash.data('plan');
+    if (p.status !== 'ok') return;
+    const f1 = d3.format('.1f');
+    for (const r of [...p.data].sort((a, b) => Number(a.order) - Number(b.order))) {
+      const tr = mkEl('tr');
+      tr.dataset.key = r.order;
+      tr.append(mkEl('td', '', r.slot), mkEl('td', '', r.item), mkEl('td', 'n', fmtInt(Number(r.calories))),
+        mkEl('td', 'n', f1(Number(r.protein_g))), mkEl('td', 'n hide-sm', f1(Number(r.carbs_g))), mkEl('td', 'n hide-sm', f1(Number(r.fat_g))));
+      tb.append(tr);
+    }
+    const t = planTotals();
+    if (t) {
+      const tr = mkEl('tr', 'total');
+      tr.append(mkEl('td', '', 'Day total'), mkEl('td', '', ''), mkEl('td', 'n', fmtInt(t.calories)), mkEl('td', 'n', f1(t.protein_g)),
+        mkEl('td', 'n hide-sm', f1(t.carbs_g)), mkEl('td', 'n hide-sm', f1(t.fat_g)));
+      tb.append(tr);
+    }
+  });
+  dash.draw('plan-compare', (tb) => {
+    tb.replaceChildren();
+    const s = dash.data('daily-food'), t = planTotals();
+    if (s.status !== 'ok' || !t) return;
+    const signed = (v, digits) => `${v > 0 ? '+' : ''}${v.toFixed(digits)}`;
+    for (const d of s.data.filter((x) => x.date >= PLAN_START).sort((a, b) => (a.date < b.date ? -1 : 1))) {
+      const tr = mkEl('tr');
+      const dc = d.calories - t.calories, dp = d.protein_g - t.protein_g;
+      const cCell = mkEl('td', 'n', signed(dc, 0));
+      if (d.calories > CAL_MAX) cCell.style.color = 'var(--color-bad)';
+      else if (d.calories < CAL_LOW) cCell.style.color = 'var(--color-warn)';
+      const pCell = mkEl('td', 'n', signed(dp, 1));
+      pCell.style.color = d.protein_g >= PROTEIN_TARGET ? 'var(--color-ok)' : 'var(--color-warn)';
+      tr.append(mkEl('td', '', dayName(d.date)), mkEl('td', 'n', fmtInt(d.calories)), cCell, mkEl('td', 'n', d3.format('.1f')(d.protein_g)), pCell,
+        mkEl('td', 'n hide-sm', d3.format('.1f')(d.carbs_g)), mkEl('td', 'n hide-sm', d3.format('.1f')(d.fat_g)));
+      tb.append(tr);
+    }
+  });
+
+  // ---------- At a glance (top of page) ----------
+  const todayFood = () => {
+    const s = dash.data('daily-food');
+    if (s.status !== 'ok') return null;
+    return s.data.find((d) => d.date === todayStr) || { calories: 0, protein_g: 0 };
+  };
+  dash.draw('gl-pro-t', (el) => { el.textContent = String(PROTEIN_TARGET); });
+  dash.draw('gl-pro', (el) => { const t = todayFood(); el.textContent = t ? fmtG(t.protein_g) : '—'; });
+  dash.draw('gl-pro-left', (el) => {
+    const t = todayFood();
+    if (!t) { el.textContent = '—'; el.style.color = ''; return; }
+    const left = PROTEIN_TARGET - t.protein_g;
+    el.textContent = left > 0 ? `${fmtG(left)} g to go` : 'Target hit';
+    el.style.color = left > 0 ? 'var(--color-warn)' : 'var(--color-ok)';
+  });
+  dash.draw('gl-cal', (el) => { const t = todayFood(); el.textContent = t ? fmtInt(t.calories) : '—'; });
+  dash.draw('gl-cal-left', (el) => {
+    const t = todayFood();
+    if (!t) { el.textContent = '—'; el.style.color = ''; return; }
+    if (t.calories > CAL_MAX) { el.textContent = `${fmtInt(t.calories - TARGET)} over`; el.style.color = 'var(--color-bad)'; return; }
+    el.textContent = t.calories > TARGET ? 'On target' : `${fmtInt(TARGET - t.calories)} left`;
+    el.style.color = t.calories > TARGET ? 'var(--color-ok)' : '';
+  });
+  dash.draw('gl-avg', mVal('weight-week', 'avg_lb'));
+  dash.draw('gl-last', (el) => {
+    const s = dash.data('weigh-ins');
+    if (s.status !== 'ok' || !s.data.length) { el.textContent = '—'; return; }
+    const r = [...s.data].sort((a, b) => (a.date < b.date ? -1 : 1)).pop();
+    el.textContent = `${Number(r.weight_lb).toFixed(1)} lb, ${d3.utcFormat('%a %b %-d')(new Date(r.date + 'T12:00:00Z'))}`;
+  });
+
+  // ---------- Food vs. next-morning weight ----------
+  document.querySelectorAll('.legend .fw-under').forEach((e) => e.style.setProperty('--sw', PALETTE[1]));
+  document.querySelectorAll('.legend .fw-over').forEach((e) => e.style.setProperty('--sw', PALETTE[2]));
+  dash.calc('food-weight', {
+    inputs: ['daily-food', 'weigh-ins'],
+    title: 'Food vs. next-morning weight',
+    description: 'Each logged day paired with the next morning\'s weigh-in, and how much that weigh-in changed from the one before it.',
+    fn: (dailyFood, weighIns) => {
+      const w = weighIns.map((d) => ({ date: d.date, lb: Number(d.weight_lb) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+      const out = [];
+      for (const d of dailyFood) {
+        const next = d3.utcFormat('%Y-%m-%d')(d3.utcDay.offset(new Date(d.date + 'T12:00:00Z'), 1));
+        const i = w.findIndex((x) => x.date === next);
+        if (i < 1) continue;
+        const prev = w[i - 1];
+        const gap = Math.round((Date.parse(next) - Date.parse(prev.date)) / 864e5);
+        out.push({ weigh_date: next, date: d.date, calories: d.calories, protein_g: d.protein_g, carbs_g: d.carbs_g, next_weight_lb: w[i].lb, change_lb: +(w[i].lb - prev.lb).toFixed(1), gap_days: gap });
+      }
+      return out;
+    },
+  });
+  dash.draw('fw-target', (el) => { el.textContent = fmtInt(TARGET); });
+  document.querySelectorAll('.legend .fw-low').forEach((e) => e.style.setProperty('--sw', PALETTE[0]));
+  document.querySelectorAll('.legend .fw-wt').forEach((e) => e.style.setProperty('--sw', 'var(--color-fg)'));
+  dash.draw('fw-low', (el) => { el.textContent = fmtInt(CAL_LOW); });
+  dash.draw('fw-low-2', (el) => { el.textContent = fmtInt(CAL_LOW); });
+  dash.draw('fw-max', (el) => { el.textContent = fmtInt(CAL_MAX); });
+  dash.draw('fw-max-2', (el) => { el.textContent = fmtInt(CAL_MAX); });
+  dash.draw('fw-summary', (el) => {
+    const s = dash.data('food-weight');
+    if (s.status !== 'ok') { el.textContent = '—'; return; }
+    const rows = s.data;
+    if (rows.length < 2) {
+      el.textContent = rows.length
+        ? 'Only 1 day so far has a weigh-in the next morning. Weigh in each morning and this fills in.'
+        : 'No days yet with a weigh-in the next morning. Weigh in each morning and this fills in.';
+      return;
+    }
+    const signed = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)} lb`;
+    const low = rows.filter((r) => r.calories < CAL_LOW), on = rows.filter((r) => r.calories >= CAL_LOW && r.calories <= CAL_MAX), high = rows.filter((r) => r.calories > CAL_MAX);
+    const part = (g, label) => `${label}, the next-morning change averaged ${signed(d3.mean(g, (r) => r.change_lb))} (${g.length} day${g.length === 1 ? '' : 's'})`;
+    const bits = [];
+    if (low.length) bits.push(part(low, `On days under ${fmtInt(CAL_LOW)} calories`));
+    if (on.length) bits.push(part(on, `On target days (${fmtInt(CAL_LOW)} to ${fmtInt(CAL_MAX)})`));
+    if (high.length) bits.push(part(high, `On days over ${fmtInt(CAL_MAX)}`));
+    let t = bits.join('. ') + '.';
+    if (rows.length >= 7) {
+      const mx = d3.mean(rows, (r) => r.calories), my = d3.mean(rows, (r) => r.change_lb);
+      const cov = d3.sum(rows, (r) => (r.calories - mx) * (r.change_lb - my));
+      const sx = Math.sqrt(d3.sum(rows, (r) => (r.calories - mx) ** 2)), sy = Math.sqrt(d3.sum(rows, (r) => (r.change_lb - my) ** 2));
+      const r = sx && sy ? cov / (sx * sy) : 0;
+      const strength = Math.abs(r) >= 0.6 ? 'clearly' : Math.abs(r) >= 0.3 ? 'somewhat' : 'barely';
+      t += ` Across all ${rows.length} days, eating more ${strength} lines up with ${r >= 0 ? 'a higher' : 'a lower'} weight the next morning.`;
+    } else {
+      t += ` That's only ${rows.length} days, so treat it as a first look. A clearer pattern shows after about 7.`;
+    }
+    el.textContent = t;
+  });
+  dash.draw('fw-chart', (el) => {
+    el.replaceChildren();
+    const s = dash.data('food-weight');
+    if (s.status === 'error') {
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+      el.textContent = 'Failed to load';
+      return;
+    }
+    el.style.display = '';
+    if (s.status !== 'ok' || !s.data.length) return;
+    const rows = s.data;
+    const pts = [...rows].sort((a, b) => (a.weigh_date < b.weigh_date ? -1 : 1));
+    const W = Math.max(260, el.clientWidth), H = 240, mB = 28, mT = 30;
+    const yC = d3.scaleLinear([0, Math.max(CAL_MAX, d3.max(pts, (r) => r.calories)) * 1.1], [H - mB, mT]).nice();
+    const wMin = d3.min(pts, (r) => r.next_weight_lb), wMax = d3.max(pts, (r) => r.next_weight_lb);
+    const yW = d3.scaleLinear([wMin - 2.5, wMax + 1], [H - mB, mT]);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block').style('overflow', 'visible');
+    const axText = (sel) => sel.attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove())
+      .call((g) => g.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)'));
+    const yAx = svg.append('g').call(d3.axisLeft(yC).ticks(4).tickSize(0).tickFormat(d3.format(','))).call(axText);
+    let mL = 0; yAx.selectAll('text').each(function () { mL = Math.max(mL, this.getComputedTextLength()); });
+    mL += 12;
+    yAx.attr('transform', `translate(${mL - 6},0)`);
+    const rAx = svg.append('g').call(d3.axisRight(yW).ticks(4).tickSize(0).tickFormat((v) => v.toFixed(0))).call(axText);
+    let mR = 0; rAx.selectAll('text').each(function () { mR = Math.max(mR, this.getComputedTextLength()); });
+    mR += 12;
+    rAx.attr('transform', `translate(${W - mR + 6},0)`);
+    svg.append('text').attr('x', mL - 6).attr('y', 10).attr('text-anchor', 'end').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)').text('Cal');
+    svg.append('text').attr('x', W - mR + 6).attr('y', 10).attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)').text('lb');
+    const x = d3.scaleBand(pts.map((r) => r.weigh_date), [mL, W - mR]).padding(0.4);
+    svg.insert('g', ':first-child').selectAll('line').data(yC.ticks(4)).join('line')
+      .attr('x1', mL).attr('x2', W - mR).attr('y1', (d) => yC(d)).attr('y2', (d) => yC(d))
+      .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+    const xAx = svg.append('g').attr('transform', `translate(0,${H - mB})`)
+      .call(d3.axisBottom(x).tickFormat(dayShort).tickSizeOuter(0)).attr('font-size', null).attr('font-family', null);
+    xAx.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('.tick line').remove();
+    xAx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    const fit = Math.max(1, Math.floor((W - mL - mR) / 48));
+    if (pts.length > fit) { const every = Math.ceil(pts.length / fit); xAx.selectAll('.tick').filter((d, i) => (pts.length - 1 - i) % every !== 0).remove(); }
+    const cx = (r) => x(r.weigh_date) + x.bandwidth() / 2;
+    const bw = Math.min(32, x.bandwidth());
+    const calColor = (r) => (r.calories > CAL_MAX ? PALETTE[2] : r.calories >= CAL_LOW ? PALETTE[1] : PALETTE[0]);
+    svg.append('g').selectAll('rect').data(pts).join('rect')
+      .attr('x', (r) => cx(r) - bw / 2).attr('width', bw).attr('y', (r) => yC(r.calories)).attr('height', (r) => yC(0) - yC(r.calories))
+      .attr('rx', 4).attr('fill', calColor).attr('fill-opacity', 0.55);
+    svg.append('line').attr('x1', mL).attr('x2', W - mR).attr('y1', yC(TARGET)).attr('y2', yC(TARGET))
+      .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+    svg.append('path').datum(pts).attr('fill', 'none').attr('stroke', 'var(--color-fg)').attr('stroke-width', 2)
+      .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')
+      .attr('d', d3.line().x(cx).y((r) => yW(r.next_weight_lb)));
+    svg.append('g').selectAll('circle').data(pts).join('circle')
+      .attr('cx', cx).attr('cy', (r) => yW(r.next_weight_lb)).attr('r', 5)
+      .attr('fill', 'var(--color-fg)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    svg.append('g').selectAll('text').data(pts).join('text')
+      .attr('x', cx).attr('y', (r) => yW(r.next_weight_lb) - 11).attr('text-anchor', 'middle')
+      .attr('fill', 'var(--color-fg)').style('font-size', 'var(--cds-font-size-caption)').style('font-weight', 600).style('pointer-events', 'none')
+      .text((r) => r.next_weight_lb.toFixed(1));
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
+    svg.append('g').selectAll('rect').data(pts).join('rect')
+      .attr('x', (r) => x(r.weigh_date) - (x.step() - x.bandwidth()) / 2).attr('width', x.step()).attr('y', 0).attr('height', H - mB)
+      .attr('fill', 'transparent')
+      .on('pointerenter', function (ev, r) {
+        tip.selectAll('*').remove();
+        tip.append('div').attr('class', 'd').text(`Weigh-in ${dayName(r.weigh_date)}`);
+        tip.append('div').text(`Weight: ${r.next_weight_lb.toFixed(1)} lb (${r.change_lb > 0 ? '+' : ''}${r.change_lb.toFixed(1)}${r.gap_days > 1 ? ` over ${r.gap_days} days` : ''})`);
+        tip.append('div').text(`Day before: ${fmtInt(r.calories)} calories, ${fmtG(r.protein_g)} g protein, ${fmtG(r.carbs_g)} g carbs`);
+        const tw = tip.node().offsetWidth;
+        const px = (cx(r) / W) * el.clientWidth;
+        tip.style('left', `${Math.min(Math.max(0, px - tw / 2), el.clientWidth - tw)}px`).style('top', '0px').style('opacity', 1);
+      })
+      .on('pointerleave', () => tip.style('opacity', 0));
+  });
+  dash.draw('fw-rows', (tb) => {
+    tb.replaceChildren();
+    const s = dash.data('food-weight');
+    if (s.status !== 'ok') return;
+    for (const r of s.data) {
+      const tr = mkEl('tr');
+      tr.dataset.key = r.weigh_date;
+      const ch = mkEl('td', 'n', `${r.change_lb > 0 ? '+' : ''}${r.change_lb.toFixed(1)}${r.gap_days > 1 ? ` (${r.gap_days} days)` : ''}`);
+      ch.style.color = r.change_lb > 0 ? 'var(--color-warn)' : r.change_lb < 0 ? 'var(--color-ok)' : '';
+      const cal = mkEl('td', 'n', fmtInt(r.calories));
+      if (r.calories > CAL_MAX) cal.style.color = 'var(--color-bad)';
+      tr.append(mkEl('td', '', dayName(r.weigh_date) + (r.weigh_date === todayStr ? ' (today)' : '')), mkEl('td', 'n', r.next_weight_lb.toFixed(1)), ch,
+        cal, mkEl('td', 'n', d3.format('.1f')(r.protein_g)), mkEl('td', 'n', d3.format('.1f')(r.carbs_g)));
+      tb.append(tr);
+    }
+  });
+
+  // ---------- All trends: every daily measure overlaid as lines on one chart ----------
+  // Left axis: percent of that measure's daily target (100% = target). Right axis: weight in lb.
+  const trendsOff = new Set();
+  dash.draw('trends-chart', function drawTrends(el) {
+    el.replaceChildren();
+    const wi = dash.data('weigh-ins'), wa = dash.data('weight-avg'), df = dash.data('daily-food'), hb = dash.data('habits');
+    const st = dash.data('strength'), wk = dash.data('walks');
+    if ([wi, df].some((s) => s.status !== 'ok')) return;
+    const rows = (s) => (s && s.status === 'ok' ? s.data : []);
+    const iso = d3.utcFormat('%Y-%m-%d');
+    const allDates = [...rows(wi), ...rows(df), ...rows(hb), ...rows(st), ...rows(wk)].map((d) => d.date).filter(Boolean).sort();
+    if (!allDates.length) return;
+    const days = d3.utcDays(new Date(allDates[0] + 'T00:00:00Z'), d3.utcDay.offset(new Date(allDates[allDates.length - 1] + 'T00:00:00Z'), 1)).map(iso);
+    const byDate = (arr) => new Map(arr.map((d) => [d.date, d]));
+    const W = byDate(rows(wi)), A = byDate(rows(wa)), F = byDate(rows(df)), H = byDate(rows(hb));
+    const lifts = d3.rollup(rows(st), (v) => v.length, (d) => d.date), walksN = d3.rollup(rows(wk), (v) => v.length, (d) => d.date);
+    const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+    const WATER_GOAL = 128;
+    const series = [
+      { key: 'cal', label: 'Calories', color: '#f2a65a', target: TARGET, unit: '', get: (d) => num(F.get(d)?.calories), fmt: fmtInt },
+      { key: 'pro', label: 'Protein', color: '#4fd1a5', target: PROTEIN_TARGET, unit: ' g', get: (d) => num(F.get(d)?.protein_g), fmt: fmtG },
+      { key: 'na', label: 'Sodium', color: '#f07a8c', target: SODIUM_MAX, unit: ' mg', get: (d) => num(F.get(d)?.sodium_mg), fmt: fmtInt, partial: (d) => !!F.get(d)?.sodium_partial },
+      { key: 'sleep', label: 'Sleep', color: '#b197fc', target: SLEEP_GOAL, unit: ' hr', get: (d) => num(H.get(d)?.sleep_hr), fmt: (v) => String(+v.toFixed(2)) },
+      { key: 'water', label: 'Water', color: '#6ea8ff', target: WATER_GOAL, unit: ' oz', get: (d) => num(H.get(d)?.water_oz), fmt: fmtInt },
+    ];
+    const wGet = (d) => num(W.get(d)?.weight_lb), aGet = (d) => num(A.get(d)?.avg7_lb);
+    const on = (k) => !trendsOff.has(k);
+    const Wd = Math.max(300, el.clientWidth), Ht = Wd < 520 ? 340 : 400, mT = 22, mB = 44, mL = 40, mR = 38;
+    const x = d3.scalePoint(days, [mL, Wd - mR]).padding(0.3);
+    const pct = (s, d) => { const v = s.get(d); return v == null ? null : (v / s.target) * 100; };
+    const shown = series.filter((s) => on(s.key));
+    const maxPct = Math.max(120, d3.max(shown.flatMap((s) => days.map((d) => pct(s, d)).filter((v) => v != null))) || 0);
+    const y = d3.scaleLinear([0, maxPct * 1.05], [Ht - mB, mT]);
+    const wVals = days.flatMap((d) => [wGet(d), aGet(d)]).filter((v) => v != null);
+    const yW = d3.scaleLinear([d3.min(wVals) - 2, d3.max(wVals) + 1], [Ht - mB, mT]);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${Wd} ${Ht}`).style('display', 'block').style('overflow', 'visible');
+    const cap = (sel) => sel.attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    const ticks = y.ticks(5);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', mL).attr('x2', Wd - mR).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', mL - 6).attr('y', (d) => y(d) + 4).attr('text-anchor', 'end').call(cap).text((d) => `${d}%`);
+    svg.append('text').attr('x', 0).attr('y', 10).call(cap).text('% of daily target');
+    if (on('weight')) {
+      svg.append('g').selectAll('text').data(yW.ticks(5)).join('text').attr('x', Wd - mR + 6).attr('y', (d) => yW(d) + 4).call(cap).text((d) => d);
+      svg.append('text').attr('x', Wd).attr('y', 10).attr('text-anchor', 'end').call(cap).text('Weight, lb');
+    }
+    svg.append('line').attr('x1', mL).attr('x2', Wd - mR).attr('y1', y(100)).attr('y2', y(100))
+      .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
+    svg.append('text').attr('x', mL + 4).attr('y', y(100) - 5).call(cap).text('Target (100%)');
+    // training markers along the bottom
+    const trained = days.filter((d) => lifts.get(d) || walksN.get(d));
+    if (on('train')) svg.append('g').selectAll('path').data(trained).join('path')
+      .attr('transform', (d) => `translate(${x(d)},${Ht - mB - 7})`).attr('d', d3.symbol(d3.symbolTriangle, 44)).attr('fill', 'var(--color-fg-muted)');
+    const hov = svg.append('line').attr('y1', mT).attr('y2', Ht - mB).attr('stroke', 'var(--cds-chart-axis)').attr('opacity', 0);
+    for (const s of shown) {
+      const pts = days.filter((d) => pct(s, d) != null);
+      svg.append('path').datum(pts).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+        .attr('d', d3.line().x((d) => x(d)).y((d) => y(pct(s, d))));
+      svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', (d) => x(d)).attr('cy', (d) => y(pct(s, d))).attr('r', 3)
+        .attr('fill', (d) => (s.partial && s.partial(d) ? 'var(--color-panel)' : s.color)).attr('stroke', s.color).attr('stroke-width', 1.5);
+    }
+    if (on('weight')) {
+      const aPts = days.filter((d) => aGet(d) != null), wPts = days.filter((d) => wGet(d) != null);
+      svg.append('path').datum(aPts).attr('fill', 'none').attr('stroke', 'var(--color-fg)').attr('stroke-width', 3.5).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+        .attr('d', d3.line().x((d) => x(d)).y((d) => yW(aGet(d))));
+      svg.append('g').selectAll('circle').data(wPts).join('circle').attr('cx', (d) => x(d)).attr('cy', (d) => yW(wGet(d))).attr('r', 4.5)
+        .attr('fill', 'var(--color-panel)').attr('stroke', 'var(--color-fg)').attr('stroke-width', 2);
+      const last = wPts[wPts.length - 1];
+      if (last) svg.append('text').attr('x', x(last)).attr('y', yW(wGet(last)) + 18).attr('text-anchor', 'middle').attr('fill', 'var(--color-fg)')
+        .style('font-size', 'var(--cds-font-size-caption)').style('font-weight', 600).text(wGet(last).toFixed(1));
+    }
+    const xAx = svg.append('g').attr('transform', `translate(0,${Ht - mB})`).call(d3.axisBottom(x).tickSize(0).tickPadding(8).tickFormat((d) => d3.utcFormat('%-m/%-d')(new Date(d + 'T12:00:00Z'))))
+      .attr('font-size', null).attr('font-family', null);
+    xAx.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    xAx.selectAll('text').call(cap);
+    const fit = Math.max(1, Math.floor((Wd - mL - mR) / 40));
+    if (days.length > fit) { const every = Math.ceil(days.length / fit); xAx.selectAll('.tick').filter((d, i) => (days.length - 1 - i) % every !== 0).remove(); }
+    // legend doubles as show/hide switches
+    const legend = d3.select(el).append('div').attr('class', 'legend tog');
+    const item = (key, label, color, cls) => legend.append('span').attr('class', `${cls || ''}${on(key) ? '' : ' off'}`).attr('role', 'button').attr('tabindex', 0)
+      .style('--sw', color).text(label).on('click', () => { trendsOff.has(key) ? trendsOff.delete(key) : trendsOff.add(key); drawTrends(el); });
+    item('weight', 'Weight (7-day avg, dots = weigh-ins)', 'var(--color-fg)', 'thick');
+    for (const s of series) item(s.key, s.label, s.color);
+    item('train', 'Trained', 'var(--color-fg-muted)', 'tri');
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
+    const step = x.step();
+    const show = (ev, d) => {
+      hov.attr('x1', x(d)).attr('x2', x(d)).attr('opacity', 1);
+      tip.selectAll('*').remove();
+      tip.append('div').attr('class', 'd').text(dayName(d));
+      if (wGet(d) != null) tip.append('div').text(`Weight: ${wGet(d).toFixed(1)} lb${aGet(d) != null ? ` (7-day avg ${aGet(d).toFixed(1)})` : ''}`);
+      for (const s of series) {
+        const v = s.get(d);
+        if (v == null) continue;
+        const row = tip.append('div');
+        row.append('span').style('color', s.color).text('● ');
+        row.append('span').text(`${s.label}: ${s.fmt(v)}${s.partial && s.partial(d) ? '+' : ''}${s.unit} (${Math.round(pct(s, d))}% of ${s.fmt(s.target)})`);
+      }
+      if (lifts.get(d) || walksN.get(d)) tip.append('div').text(`Trained: ${[lifts.get(d) ? `${lifts.get(d)} exercises` : '', walksN.get(d) ? 'walk' : ''].filter(Boolean).join(', ')}`);
+      const tw = tip.node().offsetWidth, px = (x(d) / Wd) * el.clientWidth;
+      const left = px + 14 + tw <= el.clientWidth ? px + 14 : px - 14 - tw;
+      tip.style('left', `${Math.max(0, left)}px`).style('top', '24px').style('opacity', 1);
+    };
+    svg.append('g').selectAll('rect').data(days).join('rect').attr('x', (d) => x(d) - step / 2).attr('width', step).attr('y', 0).attr('height', Ht - mB)
+      .attr('fill', 'transparent').on('pointerenter', show).on('click', show)
+      .on('pointerleave', () => { tip.style('opacity', 0); hov.attr('opacity', 0); });
+  });
+
+})();
+window.__runAll();
+</script>
+</body>
+</html>
