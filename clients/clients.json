@@ -39,5 +39,40 @@
   "trainer": "Deon",
   "feed": "feeds/chris.json",
   "demo": true
+ },
+ {
+  "slug": "andre",
+  "name": "Andre W.",
+  "trainer": "Quinlen",
+  "feed": "feeds/andre.json",
+  "demo": true
+ },
+ {
+  "slug": "simone",
+  "name": "Simone K.",
+  "trainer": "Quinlen",
+  "feed": "feeds/simone.json",
+  "demo": true
+ },
+ {
+  "slug": "jordan",
+  "name": "Jordan B.",
+  "trainer": "Quinlen",
+  "feed": "feeds/jordan.json",
+  "demo": true
+ },
+ {
+  "slug": "malik",
+  "name": "Malik H.",
+  "trainer": "Quinlen",
+  "feed": "feeds/malik.json",
+  "demo": true
+ },
+ {
+  "slug": "rae",
+  "name": "Rae C.",
+  "trainer": "Quinlen",
+  "feed": "feeds/rae.json",
+  "demo": true
  }
 ]

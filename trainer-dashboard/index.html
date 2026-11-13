@@ -66,7 +66,7 @@
 
   <h2>Client averages by goal</h2>
   <div class="groups" id="groups"><div class="empty">Loading…</div></div>
-  <p class="note">Averages use each client's own targets. Progress to goal compares start weight, current weight and goal weight. Last 7 days covers calories, protein and logging.</p>
+  <p class="note">Averages use each client's own targets. Progress to goal compares start weight, current weight and goal weight. Calories and protein average the last 7 full days, so today counts once it's over. Workouts and days logged cover the last 7 days.</p>
 
   <h2>All clients</h2>
   <div class="tbl-wrap">
@@ -121,7 +121,9 @@
     let toGoal = null;
     if (goal && start && now && goal !== start.lb) toGoal = Math.max(0, Math.min(1, (now.lb - start.lb) / (goal - start.lb)));
     const since = d3.timeFormat('%Y-%m-%d')(new Date(Date.now() - 6 * day));
-    const byDay = d3.rollups(food.filter((r) => r.date >= since), (v) => ({ cal: d3.sum(v, (r) => +r.calories || 0), pro: d3.sum(v, (r) => +r.protein_g || 0) }), (r) => r.date);
+    const since7 = d3.timeFormat('%Y-%m-%d')(new Date(Date.now() - 7 * day));
+    // Calories and protein use the last 7 full days; today is left out until it is over
+    const byDay = d3.rollups(food.filter((r) => r.date >= since7 && r.date < todayISO), (v) => ({ cal: d3.sum(v, (r) => +r.calories || 0), pro: d3.sum(v, (r) => +r.protein_g || 0) }), (r) => r.date);
     const calAvg = byDay.length ? d3.mean(byDay, (d) => d[1].cal) : null;
     const proAvg = byDay.length ? d3.mean(byDay, (d) => d[1].pro) : null;
     const proT = +s.protein_g || null, calT = +s.calories || null;
