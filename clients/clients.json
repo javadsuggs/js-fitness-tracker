@@ -2,12 +2,14 @@
  {
   "slug": "javad",
   "name": "Javad",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
   "feed": "feeds/javad.json"
  },
  {
   "slug": "marcus",
   "name": "Marcus T.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Deon",
   "feed": "feeds/marcus.json",
   "demo": true
@@ -15,6 +17,7 @@
  {
   "slug": "dana",
   "name": "Dana R.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Deon",
   "feed": "feeds/dana.json",
   "demo": true
@@ -22,6 +25,7 @@
  {
   "slug": "kev",
   "name": "Kev L.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Deon",
   "feed": "feeds/kev.json",
   "demo": true
@@ -29,6 +33,7 @@
  {
   "slug": "tasha",
   "name": "Tasha M.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Deon",
   "feed": "feeds/tasha.json",
   "demo": true
@@ -36,6 +41,7 @@
  {
   "slug": "chris",
   "name": "Chris P.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Deon",
   "feed": "feeds/chris.json",
   "demo": true
@@ -43,6 +49,7 @@
  {
   "slug": "andre",
   "name": "Andre W.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
   "feed": "feeds/andre.json",
   "demo": true
@@ -50,6 +57,7 @@
  {
   "slug": "simone",
   "name": "Simone K.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
   "feed": "feeds/simone.json",
   "demo": true
@@ -57,6 +65,7 @@
  {
   "slug": "jordan",
   "name": "Jordan B.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
   "feed": "feeds/jordan.json",
   "demo": true
@@ -64,6 +73,7 @@
  {
   "slug": "malik",
   "name": "Malik H.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
   "feed": "feeds/malik.json",
   "demo": true
@@ -71,6 +81,7 @@
  {
   "slug": "rae",
   "name": "Rae C.",
+  "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
   "feed": "feeds/rae.json",
   "demo": true

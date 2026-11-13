@@ -264,7 +264,7 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
   var allDates = [].concat(weigh, food, lift, habits, tape, inbody, walks).map(function (x) { return x.date; }).sort();
   var w0 = weigh[0], w1 = weigh[weigh.length - 1];
   var publicSettings = {};
-  ['name', 'trainer', 'goal_type', 'start_date', 'goal_weight_lb', 'calories', 'protein_g', 'sodium_mg', 'sleep_hr', 'min_loss_lb_per_week', 'visceral_goal', 'plan_start', 'form_url'].forEach(function (k) {
+  ['name', 'location', 'trainer', 'goal_type', 'start_date', 'goal_weight_lb', 'calories', 'protein_g', 'sodium_mg', 'sleep_hr', 'min_loss_lb_per_week', 'visceral_goal', 'plan_start', 'form_url'].forEach(function (k) {
     if (settings[k] !== '' && settings[k] != null) publicSettings[k] = settings[k];
   });
   return {

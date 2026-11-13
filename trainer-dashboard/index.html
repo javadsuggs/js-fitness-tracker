@@ -50,6 +50,11 @@
   .viewer .hdr a { color: var(--blue); font-size: 13px; text-decoration: none; }
   iframe { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-height: 600px; display: block; }
   .empty { color: var(--muted); padding: 14px; }
+  .loc { cursor: pointer; }
+  .loc.sel { border-color: var(--ok); }
+  .loc .who { width: 100%; border-collapse: collapse; margin-top: 12px; min-width: 0; font-size: 13px; }
+  .loc .who th, .loc .who td { padding: 5px 4px; border-top: 1px solid var(--line); }
+  .loc .who thead th { font-size: 11.5px; }
   .note { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -57,14 +62,19 @@
 <body>
 <main>
   <h1>Trainer Dashboard</h1>
-  <p class="sub">Pick a trainer to see their clients. Pick a client to open their full tracker below.</p>
+  <p class="sub">Pick a location and trainer to see their clients. Pick a client to open their full tracker below.</p>
 
   <div class="pickers">
+    <label>Location<select id="location"></select></label>
     <label>Trainer<select id="trainer"></select></label>
     <label>Client<select id="client"><option value="">Choose a client…</option></select></label>
   </div>
 
-  <h2>Client averages by goal</h2>
+  <h2>Results by location</h2>
+  <div class="groups" id="locs"></div>
+  <p class="note">Each location card covers all of its trainers. Tap a card to filter the page to that location.</p>
+
+  <h2 id="goals-title">Client averages by goal</h2>
   <div class="groups" id="groups"><div class="empty">Loading…</div></div>
   <p class="note">Averages use each client's own targets. Progress to goal compares start weight, current weight and goal weight. Calories and protein average the last 7 full days, so today counts once it's over. Workouts and days logged cover the last 7 days.</p>
 
@@ -72,9 +82,9 @@
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Client</th><th>Goal</th><th class="n">Start</th><th class="n">Now</th><th class="n">Goal wt</th><th class="n">Change</th><th class="n">Pace / wk</th><th class="n">To goal</th><th class="n">Protein (7 d)</th><th class="n">Workouts (7 d)</th><th>Last log</th>
+        <th>Client</th><th class="tcol">Trainer</th><th>Goal</th><th class="n">Start</th><th class="n">Now</th><th class="n">Goal wt</th><th class="n">Change</th><th class="n">Pace / wk</th><th class="n">To goal</th><th class="n">Protein (7 d)</th><th class="n">Workouts (7 d)</th><th>Last log</th>
       </tr></thead>
-      <tbody id="rows"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+      <tbody id="rows"><tr><td colspan="12" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -119,7 +129,8 @@
     const weeks = start && now ? Math.max(1 / 7, (Date.parse(now.date) - Date.parse(start.date)) / day / 7) : null;
     const pace = change != null && weeks ? change / weeks : null;
     let toGoal = null;
-    if (goal && start && now && goal !== start.lb) toGoal = Math.max(0, Math.min(1, (now.lb - start.lb) / (goal - start.lb)));
+    // Progress to goal only applies to cutting and bulking; maintaining has no distance to cover
+    if (gk !== 'maintain' && goal && start && now && goal !== start.lb) toGoal = Math.max(0, Math.min(1, (now.lb - start.lb) / (goal - start.lb)));
     const since = d3.timeFormat('%Y-%m-%d')(new Date(Date.now() - 6 * day));
     const since7 = d3.timeFormat('%Y-%m-%d')(new Date(Date.now() - 7 * day));
     // Calories and protein use the last 7 full days; today is left out until it is over
@@ -130,24 +141,87 @@
     const workouts = new Set(lift.filter((r) => r.date >= since).map((r) => r.date)).size;
     const all = [...w.map((r) => r.date), ...food.map((r) => r.date), ...lift.map((r) => r.date), ...hab.map((r) => r.date)].filter(Boolean).sort();
     const loggedDays = new Set(all.filter((d) => d >= since && d <= todayISO)).size;
-    return { name: c.name || s.name, trainer: s.trainer || c.trainer, gk, start, now, goal, change, pace, toGoal, calAvg, proAvg, proT, calT, workouts, loggedDays, last: all[all.length - 1] || null };
+    return { name: c.name || s.name, trainer: s.trainer || c.trainer, location: s.location || c.location, gk, start, now, goal, change, pace, toGoal, calAvg, proAvg, proT, calT, workouts, loggedDays, last: all[all.length - 1] || null };
   }
 
-  const trainers = [...new Set(clients.map((c) => c.trainer || 'Unassigned'))];
-  const tSel = $('trainer'), cSel = $('client');
-  for (const t of trainers) tSel.append(new Option(t, t));
-  if (params.get('t') && trainers.includes(params.get('t'))) tSel.value = params.get('t');
+  const LOC = (c) => c.location || (stats.get(c.slug) || {}).location || 'Unassigned';
+  const TR = (c) => c.trainer || 'Unassigned';
+  const ALL = '__all';
+  const locations = [...new Set(clients.map(LOC))].sort();
+  const lSel = $('location'), tSel = $('trainer'), cSel = $('client');
+  lSel.append(new Option('All locations', ALL));
+  for (const l of locations) lSel.append(new Option(l, l));
+  lSel.value = params.get('l') && locations.includes(params.get('l')) ? params.get('l') : (locations.length === 1 ? locations[0] : ALL);
+  function fillTrainers(keep) {
+    const list = [...new Set(clients.filter((c) => lSel.value === ALL || LOC(c) === lSel.value).map(TR))].sort();
+    tSel.innerHTML = ''; tSel.append(new Option('All trainers', ALL));
+    for (const t of list) tSel.append(new Option(t, t));
+    tSel.value = keep && list.includes(keep) ? keep : ALL;
+  }
+  fillTrainers(params.get('t'));
+  const pct = (v) => (v == null ? null : Math.round(v * 100));
+  function summarize(list) {
+    const avg = (f, xs = list) => { const v = xs.map(f).filter((x) => x != null && isFinite(x)); return v.length ? d3.mean(v) : null; };
+    return {
+      n: list.length, avg,
+      toGoal: avg((x) => x.toGoal),
+      cutPace: avg((x) => x.pace, list.filter((x) => x.gk === 'cut')),
+      bulkPace: avg((x) => x.pace, list.filter((x) => x.gk === 'bulk')),
+      cal: avg((x) => (x.calAvg != null && x.calT ? x.calAvg / x.calT : null)),
+      pro: avg((x) => (x.proAvg != null && x.proT ? x.proAvg / x.proT : null)),
+      days: avg((x) => x.loggedDays),
+    };
+  }
+  const kpi = (l, v, unit) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v == null ? '—' : v}${unit && v != null ? `<small>${unit}</small>` : ''}</div></div>`;
+  function renderLocations() {
+    const box = $('locs'); box.innerHTML = '';
+    for (const l of locations) {
+      const cs = clients.filter((c) => LOC(c) === l);
+      const xs = cs.map((c) => stats.get(c.slug)).filter((x) => x && !x.error);
+      const S = summarize(xs);
+      const trs = [...new Set(cs.map(TR))].sort();
+      const rows = trs.map((t) => {
+        const T = summarize(cs.filter((c) => TR(c) === t).map((c) => stats.get(c.slug)).filter((x) => x && !x.error));
+        return `<tr><td>${esc(t)}</td><td class="n">${T.n}</td><td class="n">${T.toGoal == null ? '—' : pct(T.toGoal) + '%'}</td><td class="n">${T.pro == null ? '—' : pct(T.pro) + '%'}</td><td class="n">${T.days == null ? '—' : fmt1(T.days)}</td></tr>`;
+      }).join('');
+      const card = document.createElement('div');
+      card.className = 'grp loc' + (lSel.value === l ? ' sel' : '');
+      card.innerHTML = `<h3><span class="dot" style="background:var(--ok)"></span>${esc(l)}</h3>
+        <p class="n">${S.n} client${S.n === 1 ? '' : 's'} · ${trs.length} trainer${trs.length === 1 ? '' : 's'}</p>
+        <div class="kpis">
+          ${kpi('Avg to goal', pct(S.toGoal), '%')}
+          ${kpi('Cutting pace', S.cutPace == null ? null : sign(S.cutPace), 'lb/wk')}
+          ${kpi('Bulking pace', S.bulkPace == null ? null : sign(S.bulkPace), 'lb/wk')}
+          ${kpi('Calories vs target', pct(S.cal), '%')}
+          ${kpi('Protein vs target', pct(S.pro), '%')}
+          ${kpi('Days logged (7 d)', S.days == null ? null : fmt1(S.days), 'of 7')}
+        </div>
+        <table class="who"><thead><tr><th>Trainer</th><th class="n">Clients</th><th class="n">To goal</th><th class="n">Protein</th><th class="n">Days logged</th></tr></thead><tbody>${rows}</tbody></table>`;
+      card.addEventListener('click', () => { lSel.value = l; fillTrainers(); setURL(); params.delete('c'); render(); });
+      box.append(card);
+    }
+  }
+  function setURL(slug) {
+    const p = new URLSearchParams();
+    if (lSel.value !== ALL) p.set('l', lSel.value);
+    if (tSel.value !== ALL) p.set('t', tSel.value);
+    if (slug) p.set('c', slug);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
 
   function render() {
-    const t = tSel.value;
-    const mine = clients.filter((c) => (c.trainer || 'Unassigned') === t);
+    renderLocations();
+    const l = lSel.value, t = tSel.value;
+    const mine = clients.filter((c) => (l === ALL || LOC(c) === l) && (t === ALL || TR(c) === t));
+    $('goals-title').textContent = 'Client averages by goal' + (t !== ALL ? ' · ' + t : l !== ALL ? ' · ' + l : '');
+    document.querySelectorAll('.tcol').forEach((e) => (e.hidden = t !== ALL));
     // client dropdown, grouped by goal
     cSel.innerHTML = '<option value="">Choose a client…</option>';
     for (const gk of ['cut', 'bulk', 'maintain']) {
       const list = mine.filter((c) => (stats.get(c.slug) || {}).gk === gk);
       if (!list.length) continue;
       const og = document.createElement('optgroup'); og.label = GOALS[gk].label;
-      for (const c of list) og.append(new Option(c.name + (c.demo ? ' (sample)' : ''), c.slug));
+      for (const c of list) og.append(new Option(c.name + (c.demo ? ' (sample)' : '') + (t === ALL ? ' · ' + TR(c) : ''), c.slug));
       cSel.append(og);
     }
     // group cards
@@ -177,15 +251,17 @@
     if (!g.children.length) g.innerHTML = '<div class="empty">No client data yet.</div>';
     // table
     const tb = $('rows'); tb.innerHTML = '';
-    const sorted = mine.slice().sort((a, b) => d3.ascending((stats.get(a.slug) || {}).gk, (stats.get(b.slug) || {}).gk) || d3.ascending(a.name, b.name));
+    const order = { cut: 0, bulk: 1, maintain: 2 };
+    const sorted = mine.slice().sort((a, b) => d3.ascending(order[(stats.get(a.slug) || {}).gk], order[(stats.get(b.slug) || {}).gk]) || d3.ascending(a.name, b.name));
     for (const c of sorted) {
       const x = stats.get(c.slug) || {};
       const tr = document.createElement('tr'); tr.dataset.slug = c.slug;
-      if (x.error) { tr.innerHTML = `<td>${esc(c.name)}</td><td colspan="10" class="flag bad">Sheet not reachable</td>`; tb.append(tr); continue; }
+      if (x.error) { tr.innerHTML = `<td>${esc(c.name)}</td><td colspan="11" class="flag bad">Sheet not reachable</td>`; tb.append(tr); continue; }
       const daysAgo = x.last ? Math.round((Date.parse(todayISO) - Date.parse(x.last)) / day) : null;
       const flag = daysAgo == null ? '<span class="flag warn">No logs</span>' : daysAgo <= 0 ? '<span class="flag ok">Today</span>' : daysAgo === 1 ? '<span class="flag ok">Yesterday</span>' : `<span class="flag ${daysAgo > 3 ? 'bad' : 'warn'}">${daysAgo} days ago</span>`;
       const good = (v, gk) => (v == null ? '' : (gk === 'bulk' ? v > 0 : v < 0) ? 'flag ok' : 'flag warn');
       tr.innerHTML = `<td><b>${esc(x.name)}</b>${c.demo ? '<span class="demo">SAMPLE</span>' : ''}</td>
+        <td class="tcol"${t !== ALL ? ' hidden' : ''}>${esc(TR(c))}</td>
         <td><span class="tag ${x.gk}">${GOALS[x.gk].label}</span></td>
         <td class="n">${x.start ? fmt1(x.start.lb) : '—'}</td><td class="n">${x.now ? fmt1(x.now.lb) : '—'}</td><td class="n">${x.goal ? fmt1(x.goal) : '—'}</td>
         <td class="n"><span class="${good(x.change, x.gk)}">${x.change == null ? '—' : sign(x.change)}</span></td>
@@ -209,13 +285,14 @@
     $('viewer-title').textContent = (stats.get(slug) || {}).name || c.name;
     $('viewer-open').href = url;
     if ($('frame').dataset.slug !== slug) { $('frame').src = url; $('frame').dataset.slug = slug; $('frame').style.height = '900px'; }
-    const p = new URLSearchParams(location.search); p.set('t', tSel.value); p.set('c', slug); history.replaceState(null, '', '?' + p);
+    setURL(slug);
     if (!quiet) $('viewer').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   window.addEventListener('message', (e) => { if (e.data && e.data.type === 'tracker-height') $('frame').style.height = Math.max(600, e.data.h + 4) + 'px'; });
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
-  tSel.addEventListener('change', () => { const p = new URLSearchParams(); p.set('t', tSel.value); history.replaceState(null, '', '?' + p); params.delete('c'); render(); });
+  lSel.addEventListener('change', () => { fillTrainers(); setURL(); params.delete('c'); render(); });
+  tSel.addEventListener('change', () => { setURL(); params.delete('c'); render(); });
   cSel.addEventListener('change', () => (cSel.value ? open(cSel.value) : ($('viewer').hidden = true)));
   render();
 })();
