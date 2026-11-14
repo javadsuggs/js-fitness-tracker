@@ -176,9 +176,76 @@ function doGet() {
   var foods = foodsSh ? foodsSh.getDataRange().getValues() : [];
   var tz = ss.getSpreadsheetTimeZone();
   var tab = function (n) { var sh = ss.getSheetByName(n); return sh && sh.getLastRow() > 1 ? sh.getDataRange().getValues() : null; };
-  var extra = { plan: tab('Plan'), meals: tab('Meal orders') };
+  var extra = { plan: tab('Plan'), meals: tab('Meal orders'), program: tab('Program') };
   var feed = buildFeed(readSettings_(), values, foods, function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); }, extra);
-  return ContentService.createTextOutput(JSON.stringify(feed)).setMimeType(ContentService.MimeType.JSON);
+  return json_(feed);
+}
+function json_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- Saving from the app's log screen ----------
+// The app sends { entries: [ { type, date, ...fields } ] }. Each entry becomes one row in the
+// Responses tab, in the same columns the Google Form fills, so the feed reads both the same way.
+function doPost(e) {
+  var body;
+  try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { return json_({ ok: false, error: 'Could not read the entry.' }); }
+  var ss = SpreadsheetApp.getActive();
+  var resp = ss.getSheetByName('Responses');
+  if (!resp) return json_({ ok: false, error: 'This sheet has no Responses tab yet. Build the logging form first.' });
+  var tz = ss.getSpreadsheetTimeZone();
+  var head = resp.getRange(1, 1, 1, resp.getLastColumn()).getValues()[0];
+  var built = buildAppRows(head, body.entries, new Date(), function (s) { return Utilities.parseDate(s, tz, 'yyyy-MM-dd'); });
+  if (!built.rows.length) return json_({ ok: false, error: built.errors[0] || 'Nothing to save.' });
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    resp.getRange(resp.getLastRow() + 1, 1, built.rows.length, head.length).setValues(built.rows);
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
+  return json_({ ok: true, saved: built.rows.length, skipped: built.errors });
+}
+
+/** Pure function: turns app entries into rows that line up with the Responses header. */
+function buildAppRows(head, entries, now, toDate) {
+  var col = {};
+  head.forEach(function (h, i) { col[String(h).trim()] = i; });
+  var rows = [], errors = [];
+  var NUMS = { weight: 1, servings: 1, cal: 1, pro: 1, carb: 1, fat: 1, sodium: 1, lift: 1, sets: 1, repsAssigned: 1, repsDone: 1, sleep: 1, water: 1, energy: 1, hunger: 1 };
+  var TEXT = { meal: 1, savedFood: 1, food: 1, focus: 1, exercise: 1, liftNotes: 1 };
+  var NEED = { 'Weigh-in': ['weight'], 'Food': ['meal'], 'Workout': ['exercise'], 'Sleep, water, energy': [] };
+  (Array.isArray(entries) ? entries : []).slice(0, 80).forEach(function (en, n) {
+    var label = 'Entry ' + (n + 1);
+    if (!en || !NEED[en.type]) { errors.push(label + ': unknown type.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(en.date || ''))) { errors.push(label + ': missing date.'); return; }
+    var row = head.map(function () { return ''; });
+    var put = function (key, v) { var i = col[Q[key]]; if (i != null) row[i] = v; };
+    if (col['Timestamp'] != null) row[col['Timestamp']] = now;
+    put('date', toDate(en.date));
+    put('type', en.type);
+    var bad = false, any = false;
+    Object.keys(en).forEach(function (k) {
+      var v = en[k];
+      if (v === '' || v == null) return;
+      if (NUMS[k]) {
+        var x = Number(v);
+        if (!isFinite(x) || x < 0 || x > 100000) { bad = true; return; }
+        put(k, x); any = true;
+      } else if (TEXT[k]) {
+        // A leading = + - or @ would make the sheet treat the text as a formula.
+        var s = String(v).trim().slice(0, 500);
+        if (/^[=+\-@]/.test(s)) s = "'" + s;
+        put(k, s); if (k !== 'meal' && k !== 'focus') any = true;
+      }
+    });
+    if (bad) { errors.push(label + ': a number was not valid.'); return; }
+    var missing = NEED[en.type].filter(function (k) { return en[k] === '' || en[k] == null; });
+    if (missing.length) { errors.push(label + ': missing ' + missing.join(', ') + '.'); return; }
+    if (en.type === 'Food' && !en.savedFood && !en.food && en.cal == null) { errors.push(label + ': pick a saved food or describe what you ate.'); return; }
+    if (!any) { errors.push(label + ': nothing filled in.'); return; }
+    rows.push(row);
+  });
+  return { rows: rows, errors: errors };
 }
 
 /** Pure function (no Google calls) so it can be tested anywhere. */
@@ -258,8 +325,31 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
     'trainer-notes': csv(['date', 'source', 'note'], notes),
     'photos': 'date,pose,src\n',
     'plan': tabCsv(extra.plan, ['order', 'slot', 'item', 'calories', 'protein_g', 'carbs_g', 'fat_g']),
-    'meal-menu': tabCsv(extra.meals, ['week_start', 'meal', 'qty', 'flavor', 'protein', 'carb', 'veggie', 'calories', 'protein_g', 'carbs_g', 'fat_g'])
+    'meal-menu': tabCsv(extra.meals, ['week_start', 'meal', 'qty', 'flavor', 'protein', 'carb', 'veggie', 'calories', 'protein_g', 'carbs_g', 'fat_g']),
+    'program': programCsv(extra.program),
+    'foods': csv(['food', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'sodium_mg'], Object.keys(foods).map(function (n) {
+      var f = foods[n]; return { food: n, calories: f.cal, protein_g: f.pro, carbs_g: f.carb, fat_g: f.fat, sodium_mg: f.na };
+    }))
   };
+  // Program tab: read by header name so the trainer can reorder or add columns. Day is stored as Mon, Tue, ...
+  function programCsv(vals) {
+    var cols = ['day', 'order', 'focus', 'exercise', 'sets', 'reps', 'target_weight_lb', 'notes'];
+    if (!vals || vals.length < 2) return cols.join(',') + '\n';
+    var h = vals[0].map(function (x) { return String(x).trim().toLowerCase(); });
+    var at = function (re) { for (var i = 0; i < h.length; i++) if (re.test(h[i])) return i; return -1; };
+    var ix = { day: at(/^day/), order: at(/^order/), focus: at(/muscle|focus/), exercise: at(/^exercise/), sets: at(/^sets/), reps: at(/^reps/), target_weight_lb: at(/weight/), notes: at(/^notes/) };
+    var DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    var rows = [];
+    vals.slice(1).forEach(function (r, i) {
+      var g = function (k) { return ix[k] < 0 ? '' : r[ix[k]]; };
+      var ex = String(g('exercise') || '').trim();
+      var d = String(g('day') || '').trim().slice(0, 3).toLowerCase();
+      if (!ex || DAYS.indexOf(d) < 0) return;
+      rows.push({ day: d.charAt(0).toUpperCase() + d.slice(1), order: num(g('order')) || i + 1, focus: String(g('focus') || ''), exercise: ex,
+        sets: num(g('sets')), reps: num(g('reps')), target_weight_lb: num(g('target_weight_lb')), notes: String(g('notes') || '') });
+    });
+    return csv(cols, rows);
+  }
   function tabCsv(vals, cols) {
     if (!vals || vals.length < 2) return cols.join(',') + '\n';
     var rows = vals.slice(1).filter(function (r) { return r.some(function (v) { return v !== '' && v != null; }); }).map(function (r, i) {
@@ -276,6 +366,8 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
     if (settings[k] !== '' && settings[k] != null) publicSettings[k] = settings[k];
   });
   return {
+    script_version: '2.2',
+    can_log: true,
     settings: publicSettings,
     data: data,
     summary: {
@@ -286,4 +378,4 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { buildFeed: buildFeed, Q: Q };
+if (typeof module !== 'undefined') module.exports = { buildFeed: buildFeed, buildAppRows: buildAppRows, Q: Q };

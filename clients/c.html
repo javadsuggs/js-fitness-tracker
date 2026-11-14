@@ -1945,8 +1945,12 @@ window.__startPage = function () {
   boot.remove(); root.hidden = false;
   document.getElementById('client-title').textContent = name + "'s Fitness Tracker";
   const formUrl = (feed.settings && feed.settings.form_url) || entry.form;
-  if (formUrl) {
-    const a = document.createElement('a'); a.className = 'log-btn'; a.href = formUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '+ Log something';
+  // Sheets on script v2.2 or later take entries from the app's own log screen. Older sheets keep using the Google Form.
+  const appLog = feed.can_log && /^https:\/\/script\.google\.com\//.test(entry.feed);
+  if (appLog || formUrl) {
+    const a = document.createElement('a'); a.className = 'log-btn'; a.textContent = '+ Log something';
+    if (appLog) a.href = 'log.html?c=' + encodeURIComponent(slug);
+    else { a.href = formUrl; a.target = '_blank'; a.rel = 'noopener'; }
     document.getElementById('client-title').after(a);
   }
   // A brand new client has nothing to chart yet. Close the big chart cards and say what to do instead of showing empty space.
@@ -1958,7 +1962,7 @@ window.__startPage = function () {
     document.querySelector('#trends .peek').textContent = 'Fills in after your first log';
     const hello = document.createElement('p');
     hello.className = 'card welcome';
-    hello.textContent = formUrl
+    hello.textContent = (appLog || formUrl)
       ? 'Nothing logged yet. Tap "+ Log something" to add your first weigh-in or meal. Your charts fill in from there.'
       : 'Nothing logged yet. Your trainer will send you a link for logging. Your charts fill in once you start.';
     document.getElementById('trends').before(hello);

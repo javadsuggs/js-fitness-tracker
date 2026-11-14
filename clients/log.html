@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#121417">
+<title>Log</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JS Fitness Tracker">
+<meta property="og:title" content="Log a workout, meal or weigh-in">
+<meta property="og:description" content="Log today's workout, weigh-in, food, water and sleep. It shows up on your tracker right away.">
+<style>
+  :root {
+    --bg: #121417; --panel: #1b1e23; --panel2: #23272d; --line: #2c3038; --fg: #eceef1; --muted: #9aa1ab;
+    --accent: #4fd1a5; --accent-ink: #0d1f18; --bad: #f07a6e; --warn: #e8b84f; --ok: #5fd08a;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.4; -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px 16px 120px; }
+  a { color: var(--accent); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .back { text-decoration: none; font-size: 14px; }
+  h1 { font-family: var(--serif); font-weight: 400; font-size: 26px; margin: 10px 0 2px; }
+  .sub { color: var(--muted); font-size: 13.5px; margin: 0; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select, textarea {
+    font: inherit; font-size: 16px; color: var(--fg); background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; min-width: 0; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input[type=date] { width: auto; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 16px 0 12px; }
+  .tabs button, .chip {
+    font: inherit; font-size: 13.5px; font-weight: 600; color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 4px; cursor: pointer;
+  }
+  .tabs button[aria-selected=true], .chip[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 0 0 12px; }
+  .card h2 { font-size: 16.5px; margin: 0; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; margin: 3px 0 0; }
+  .note { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  .days { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 12px; }
+  .days .chip { flex: 0 0 auto; padding: 8px 12px; display: grid; gap: 1px; text-align: center; }
+  .days .chip small { font-weight: 400; font-size: 11.5px; opacity: .85; }
+  .sets { display: grid; gap: 8px; margin-top: 12px; }
+  .set, .sethead { display: grid; grid-template-columns: 52px 1fr 1fr; gap: 8px; align-items: center; }
+  .sethead { color: var(--muted); font-size: 12.5px; margin-bottom: -2px; }
+  .set .n { color: var(--muted); font-size: 13px; }
+  details.ex > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  details.ex > summary::-webkit-details-marker { display: none; }
+  details.ex > summary::after { content: ''; width: 8px; height: 8px; margin: 6px 4px 0 0; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
+  details.ex[open] > summary::after { transform: rotate(-135deg); margin-top: 10px; }
+  .done-tag { color: var(--ok); }
+  .set.saved input { opacity: .55; }
+  .set .tag { grid-column: 2 / 4; color: var(--ok); font-size: 12.5px; margin-top: -4px; }
+  .linkbtn { font: inherit; font-size: 13.5px; background: none; border: 0; color: var(--accent); padding: 8px 0 0; cursor: pointer; }
+  .add { width: 100%; font: inherit; font-weight: 600; color: var(--fg); background: none; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; cursor: pointer; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .quick .chip { padding: 8px 14px; }
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 4px; }
+  .scale .chip { padding: 9px 0; }
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(18, 20, 23, .96); border-top: 1px solid var(--line); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .savebar .in { max-width: 640px; margin: 0 auto; display: grid; gap: 6px; }
+  .save { width: 100%; font: inherit; font-size: 16px; font-weight: 700; border: 0; border-radius: 999px; padding: 13px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  .save:disabled { background: #2b3a35; color: #7f9a90; cursor: default; }
+  .msg { font-size: 13.5px; text-align: center; min-height: 1.2em; margin: 0; }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+  .preview { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  [hidden] { display: none !important; }
+  @media (min-width: 700px) { .wrap { padding-top: 28px; } h1 { font-size: 30px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" id="back" href="#">&larr; Back to my tracker</a>
+    <label class="row" style="gap:6px;font-size:13px;color:var(--muted)">Date <input type="date" id="date"></label>
+  </div>
+  <h1 id="title">Log</h1>
+  <p class="sub" id="sub">Loading&hellip;</p>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="workout" aria-selected="true">Workout</button>
+      <button role="tab" data-tab="weigh" aria-selected="false">Weigh-in</button>
+      <button role="tab" data-tab="food" aria-selected="false">Food</button>
+      <button role="tab" data-tab="habits" aria-selected="false">Water, sleep</button>
+    </div>
+
+    <section data-panel="workout">
+      <div class="days" id="days"></div>
+      <p class="note" id="day-note" hidden></p>
+      <div id="exercises"></div>
+      <button class="add" id="add-ex">+ Add an exercise</button>
+    </section>
+
+    <section data-panel="weigh" hidden>
+      <div class="card">
+        <h2>Morning weight</h2>
+        <p class="meta">Weigh in after the bathroom, before eating or drinking.</p>
+        <label class="f" style="margin-top:12px">Weight (lb) <input id="w-weight" type="number" inputmode="decimal" step="0.1" min="60" max="700" placeholder="e.g. 182.4"></label>
+        <p class="preview" id="w-last"></p>
+      </div>
+    </section>
+
+    <section data-panel="food" hidden>
+      <div class="card">
+        <label class="f">Meal <select id="f-meal"></select></label>
+        <label class="f" style="margin-top:12px">Saved food <select id="f-saved"><option value="">Something else (type it below)</option></select></label>
+        <div id="f-saved-box" hidden>
+          <label class="f" style="margin-top:12px">Servings <input id="f-serv" type="number" inputmode="decimal" step="0.5" min="0.5" value="1"></label>
+          <p class="preview" id="f-preview"></p>
+        </div>
+        <div id="f-custom">
+          <label class="f" style="margin-top:12px">What did you eat? <input id="f-food" type="text" placeholder="e.g. Chicken wrap"></label>
+          <div class="grid2" style="margin-top:12px">
+            <label class="f">Calories <input id="f-cal" type="number" inputmode="decimal" min="0"></label>
+            <label class="f">Protein (g) <input id="f-pro" type="number" inputmode="decimal" min="0"></label>
+            <label class="f">Carbs (g) <input id="f-carb" type="number" inputmode="decimal" min="0"></label>
+            <label class="f">Fat (g) <input id="f-fat" type="number" inputmode="decimal" min="0"></label>
+          </div>
+          <label class="f" style="margin-top:12px">Sodium (mg, optional) <input id="f-na" type="number" inputmode="decimal" min="0"></label>
+        </div>
+      </div>
+    </section>
+
+    <section data-panel="habits" hidden>
+      <div class="card">
+        <h2>Water</h2>
+        <p class="meta" id="h-water-today"></p>
+        <div class="quick" id="h-water-quick"></div>
+        <label class="f" style="margin-top:10px">Or type ounces <input id="h-water" type="number" inputmode="decimal" min="0" placeholder="oz"></label>
+      </div>
+      <div class="card">
+        <h2>Sleep last night</h2>
+        <label class="f" style="margin-top:10px">Hours <input id="h-sleep" type="number" inputmode="decimal" step="0.25" min="0" max="24" placeholder="e.g. 7.5"></label>
+      </div>
+      <div class="card">
+        <h2>How do you feel?</h2>
+        <p class="meta">1 is low, 5 is high.</p>
+        <p class="note">Energy</p><div class="scale" id="h-energy"></div>
+        <p class="note">Hunger</p><div class="scale" id="h-hunger"></div>
+      </div>
+    </section>
+
+    <p class="note" id="more" hidden>Measurements, InBody scans and cardio: <a id="more-link" target="_blank" rel="noopener">log them in your form</a>.</p>
+  </div>
+</div>
+
+<div class="savebar" id="savebar" hidden>
+  <div class="in">
+    <p class="msg" id="msg" role="status" aria-live="polite"></p>
+    <button class="save" id="save" disabled>Save</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Pre-workout', 'Post-workout'];
+  const FOCUS = ['Legs', 'Chest', 'Back', 'Arms', 'Shoulders', 'Core', 'Full body', 'Other'];
+  const localISO = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const dayOf = (iso) => DAYS[new Date(iso + 'T12:00:00').getDay()];
+  const shortDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const parseCsv = (txt) => (txt && window.d3 ? d3.csvParse(txt) : simpleCsv(txt || ''));
+  function simpleCsv(txt) {
+    const rows = []; let row = [], f = '', q = false;
+    for (let i = 0; i < txt.length; i++) {
+      const c = txt[i];
+      if (q) { if (c === '"' && txt[i + 1] === '"') { f += '"'; i++; } else if (c === '"') q = false; else f += c; }
+      else if (c === '"') q = true; else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; } else if (c !== '\r') f += c;
+    }
+    if (f || row.length) { row.push(f); rows.push(row); }
+    const head = rows.shift() || [];
+    return rows.filter((r) => r.some((x) => x !== '')).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] == null ? '' : r[i]])));
+  }
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage off: drafts just are not kept */ } },
+  };
+
+  const slug = new URLSearchParams(location.search).get('c');
+  const state = { tab: 'workout', date: localISO(new Date()), day: null, feed: null, entry: null, program: [], foods: [], last: {}, water: {}, extra: {}, energy: '', hunger: '', busy: false };
+  const fail = (html) => { $('sub').innerHTML = html; };
+
+  async function boot() {
+    if (!slug) return fail('No client chosen. Open this page from your tracker.');
+    $('back').href = 'c.html?c=' + encodeURIComponent(slug);
+    let list;
+    try { list = await (await fetch('clients.json', { cache: 'no-store' })).json(); } catch (e) { return fail('Could not load the client list. Check your signal and reload.'); }
+    const entry = list.find((x) => x.slug === slug);
+    if (!entry) return fail('No tracker found for this link. Check it with your trainer.');
+    state.entry = entry;
+    let feed;
+    try { feed = await (await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now())).json(); }
+    catch (e) { return fail('Could not reach your data sheet. Check your signal and reload.'); }
+    state.feed = feed;
+    const name = (feed.settings && feed.settings.name) || entry.name;
+    document.title = 'Log: ' + name;
+    $('title').textContent = name + "'s log";
+    const formUrl = feed.settings && feed.settings.form_url;
+    if (!feed.can_log || !/^https:\/\/script\.google\.com\//.test(entry.feed)) {
+      return fail(formUrl ? 'Your tracker logs through your form for now. <a href="' + esc(formUrl) + '">Open your logging form</a>.' : 'Logging is not set up for this tracker yet. Ask your trainer.');
+    }
+    if (formUrl) { $('more-link').href = formUrl; $('more').hidden = false; }
+    state.program = parseCsv(feed.data.program).sort((a, b) => (+a.order || 0) - (+b.order || 0));
+    state.foods = parseCsv(feed.data.foods);
+    parseCsv(feed.data.strength).forEach((r) => {
+      const k = String(r.exercise || '').toLowerCase().trim();
+      if (r.weight_lb !== '') (state.last[k] = state.last[k] || []).push({ w: +r.weight_lb, date: r.date });
+    });
+    parseCsv(feed.data.habits).forEach((r) => { state.water[r.date] = +r.water_oz || 0; });
+    const w = parseCsv(feed.data['weigh-ins']).pop();
+    if (w) $('w-last').textContent = 'Last weigh-in: ' + w.weight_lb + ' lb on ' + shortDate(w.date) + '.';
+    $('sub').textContent = 'Saves straight to your tracker.';
+    $('app').hidden = false; $('savebar').hidden = false;
+    setupStatic();
+    setDate(state.date);
+  }
+
+  // ---------- Drafts: typed sets survive a reload mid-workout ----------
+  const draftKey = () => 'log-draft:' + slug + ':' + state.date;
+  function saveDraft() {
+    const prev = (store.get(draftKey()) || {}).sets || {};
+    const sets = {};
+    // Keep sets from other days' tabs that are not on screen right now.
+    Object.keys(prev).forEach((k) => { if (!document.querySelector('.set[data-key="' + k + '"]')) sets[k] = prev[k]; });
+    document.querySelectorAll('#exercises .set').forEach((el) => {
+      const w = el.querySelector('.sw').value, r = el.querySelector('.sr').value, saved = el.classList.contains('saved');
+      if (w !== '' || r !== '' || saved) sets[el.dataset.key] = { w, r, saved };
+    });
+    store.set(draftKey(), { sets, extra: state.extra[state.date] || [] });
+  }
+
+  // ---------- Workout ----------
+  function setDate(iso) {
+    state.date = iso; $('date').value = iso;
+    const draft = store.get(draftKey()) || {};
+    state.extra[iso] = draft.extra || state.extra[iso] || [];
+    const today = dayOf(iso);
+    const planned = WEEK.filter((d) => state.program.some((p) => p.day === d));
+    state.day = planned.includes(today) ? today : null;
+    renderDays(planned); renderWorkout(draft.sets || {}); renderWater(); refresh();
+  }
+  function renderDays(planned) {
+    $('days').innerHTML = planned.map((d) => {
+      const focus = (state.program.find((p) => p.day === d) || {}).focus || '';
+      return '<button class="chip" data-day="' + d + '" aria-pressed="' + (d === state.day) + '">' + d + '<small>' + esc(focus) + '</small></button>';
+    }).join('');
+    $('days').querySelectorAll('.chip').forEach((b) => b.onclick = () => { saveDraft(); state.day = b.dataset.day; renderDays(planned); renderWorkout((store.get(draftKey()) || {}).sets || {}); refresh(); });
+    $('days').hidden = !planned.length;
+  }
+  function exerciseCard(ex, i, drafts) {
+    const key = (ex.extra ? 'x' : state.day + 'p') + i;
+    // Last time = the most recent session before the day being logged, so today's own sets don't count.
+    const last = (state.last[ex.exercise.toLowerCase().trim()] || []).filter((x) => x.date < state.date).sort((a, b) => (a.date < b.date ? -1 : 1)).pop();
+    const asked = ex.reps ? +ex.reps : '';
+    const nSets = Math.max(1, Math.min(10, +ex.sets || 1));
+    const startW = last ? last.w : (ex.target_weight_lb !== '' && ex.target_weight_lb != null ? ex.target_weight_lb : '');
+    const bits = [];
+    if (ex.sets && ex.reps) bits.push(ex.sets + ' sets of ' + ex.reps + ' reps');
+    else if (ex.sets) bits.push(ex.sets + (+ex.sets === 1 ? ' set' : ' sets'));
+    else if (ex.reps) bits.push(ex.reps + ' reps');
+    if (ex.target_weight_lb) bits.push('target ' + ex.target_weight_lb + ' lb');
+    if (last) bits.push('last time ' + last.w + ' lb (' + shortDate(last.date) + ')');
+    let rowsHtml = '', allSaved = true;
+    for (let s = 1; s <= nSets; s++) { rowsHtml += setRow(key, s, startW, asked, drafts); if (!(drafts[key + '-' + s] || {}).saved) allSaved = false; }
+    let html = '<details class="card ex"' + (allSaved ? '' : ' open') + ' data-key="' + key + '" data-name="' + esc(ex.exercise) + '" data-focus="' + esc(ex.focus || '') + '" data-asked="' + asked + '">' +
+      '<summary><div><h2>' + esc(ex.exercise) + '</h2><p class="meta"><span class="done-tag">' + (allSaved ? 'Done. ' : '') + '</span>' + esc(bits.join(' · ') || ex.focus || 'Added today') + '</p></div></summary>' +
+      (ex.notes ? '<p class="note">' + esc(ex.notes) + '</p>' : '') +
+      '<div class="sets"><div class="sethead"><span></span><span>Weight (lb)</span><span>Reps done</span></div>' + rowsHtml + '</div>' +
+      '<button class="linkbtn addset">+ Add a set</button>' +
+      '<label class="f" style="margin-top:8px">Notes (optional) <input class="exnote" type="text" placeholder="How it felt, where you failed"></label></details>';
+    return html;
+  }
+  function setRow(key, s, w, asked, drafts) {
+    const d = drafts[key + '-' + s] || {};
+    const off = d.saved ? ' disabled' : '';
+    return '<div class="set' + (d.saved ? ' saved' : '') + '" data-key="' + key + '-' + s + '"><span class="n">Set ' + s + '</span>' +
+      '<input class="sw" type="number" inputmode="decimal" min="0" step="2.5" aria-label="Set ' + s + ' weight in pounds" value="' + esc(d.w != null ? d.w : w) + '" placeholder="body wt"' + off + '>' +
+      '<input class="sr" type="number" inputmode="numeric" min="0" aria-label="Set ' + s + ' reps done" value="' + esc(d.r || '') + '" placeholder="' + (asked ? 'of ' + asked : 'reps') + '"' + off + '>' +
+      (d.saved ? '<span class="tag">Saved</span>' : '') + '</div>';
+  }
+  function renderWorkout(drafts) {
+    const list = state.day ? state.program.filter((p) => p.day === state.day) : [];
+    const extras = state.extra[state.date] || [];
+    const today = dayOf(state.date);
+    $('day-note').hidden = !!list.length || !!extras.length;
+    $('day-note').textContent = state.program.length
+      ? 'No workout planned for ' + today + '. Pick a day above, or add an exercise.'
+      : 'Your trainer has not added a program yet. Add each exercise as you do it.';
+    $('exercises').innerHTML = list.map((ex, i) => exerciseCard(ex, i, drafts)).join('') +
+      extras.map((ex, i) => exerciseCard(Object.assign({ extra: true }, ex), i, drafts)).join('');
+    wireExercises();
+  }
+  function wireExercises() {
+    $('exercises').querySelectorAll('.ex').forEach((card) => {
+      card.querySelector('.addset').onclick = () => {
+        const sets = card.querySelector('.sets'), n = sets.querySelectorAll('.set').length + 1;
+        const lastSet = sets.querySelector('.set:last-child'); const prev = lastSet ? lastSet.querySelector('.sw').value : '';
+        sets.insertAdjacentHTML('beforeend', setRow(card.dataset.key, n, prev, card.dataset.asked, {}));
+        wireInputs(); refresh();
+      };
+    });
+    wireInputs();
+  }
+  function wireInputs() { document.querySelectorAll('.sw, .sr, .exnote').forEach((i) => { i.oninput = () => { saveDraft(); refresh(); }; }); }
+  function addExercise() {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = '<h2>Add an exercise</h2><label class="f" style="margin-top:10px">Exercise <input id="nx-name" type="text" placeholder="e.g. Sled push"></label>' +
+      '<div class="grid2" style="margin-top:10px"><label class="f">Muscle group <select id="nx-focus">' + FOCUS.map((f) => '<option' + (f === ((state.program.find((p) => p.day === state.day) || {}).focus) ? ' selected' : '') + '>' + f + '</option>').join('') + '</select></label>' +
+      '<label class="f">Sets <input id="nx-sets" type="number" inputmode="numeric" min="1" max="10" value="3"></label></div>' +
+      '<label class="f" style="margin-top:10px">Reps asked for (optional) <input id="nx-reps" type="number" inputmode="numeric" min="0"></label>' +
+      '<div class="row" style="margin-top:12px"><button class="chip" id="nx-ok" style="padding:9px 16px">Add</button><button class="linkbtn" id="nx-cancel" style="padding:0">Cancel</button></div>';
+    $('add-ex').before(card); $('add-ex').hidden = true; $('nx-name').focus();
+    const close = () => { card.remove(); $('add-ex').hidden = false; };
+    $('nx-cancel').onclick = close;
+    $('nx-ok').onclick = () => {
+      const name = $('nx-name').value.trim();
+      if (!name) { $('nx-name').focus(); return; }
+      saveDraft();
+      (state.extra[state.date] = state.extra[state.date] || []).push({ exercise: name, focus: $('nx-focus').value, sets: $('nx-sets').value || 1, reps: $('nx-reps').value, target_weight_lb: '' });
+      const drafts = (store.get(draftKey()) || {}).sets || {};
+      close(); renderWorkout(drafts); saveDraft(); refresh();
+    };
+  }
+  function workoutEntries() {
+    const out = [];
+    document.querySelectorAll('#exercises .ex').forEach((card) => {
+      const note = card.querySelector('.exnote').value.trim();
+      let first = true;
+      card.querySelectorAll('.set:not(.saved)').forEach((el) => {
+        const r = el.querySelector('.sr').value;
+        if (r === '') return;
+        out.push({ el, entry: { type: 'Workout', date: state.date, focus: card.dataset.focus || 'Other', exercise: card.dataset.name, sets: 1,
+          repsAssigned: card.dataset.asked || '', repsDone: r, lift: el.querySelector('.sw').value, liftNotes: first ? note : '' } });
+        first = false;
+      });
+    });
+    return out;
+  }
+
+  // ---------- Other tabs ----------
+  function setupStatic() {
+    $('f-meal').innerHTML = MEALS.map((m) => '<option>' + m + '</option>').join('');
+    const h = new Date().getHours();
+    $('f-meal').value = h < 11 ? 'Breakfast' : h < 15 ? 'Lunch' : h < 21 ? 'Dinner' : 'Snack';
+    $('f-saved').insertAdjacentHTML('beforeend', state.foods.map((f, i) => '<option value="' + i + '">' + esc(f.food) + '</option>').join(''));
+    $('f-saved').onchange = () => { const on = $('f-saved').value !== ''; $('f-saved-box').hidden = !on; $('f-custom').hidden = on; foodPreview(); refresh(); };
+    $('f-serv').oninput = () => { foodPreview(); refresh(); };
+    $('h-water-quick').innerHTML = [8, 12, 16, 20].map((n) => '<button class="chip" data-oz="' + n + '">+' + n + ' oz</button>').join('');
+    $('h-water-quick').querySelectorAll('.chip').forEach((b) => b.onclick = () => { $('h-water').value = (+$('h-water').value || 0) + +b.dataset.oz; refresh(); });
+    ['energy', 'hunger'].forEach((k) => {
+      $('h-' + k).innerHTML = [1, 2, 3, 4, 5].map((n) => '<button class="chip" data-v="' + n + '" aria-pressed="false">' + n + '</button>').join('');
+      $('h-' + k).querySelectorAll('.chip').forEach((b) => b.onclick = () => {
+        state[k] = state[k] === b.dataset.v ? '' : b.dataset.v;
+        $('h-' + k).querySelectorAll('.chip').forEach((x) => x.setAttribute('aria-pressed', x.dataset.v === state[k]));
+        refresh();
+      });
+    });
+    document.querySelectorAll('[data-panel] input, [data-panel] select').forEach((i) => { if (!i.oninput) i.addEventListener('input', refresh); });
+    document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+      state.tab = b.dataset.tab;
+      document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-selected', x === b));
+      document.querySelectorAll('[data-panel]').forEach((p) => p.hidden = p.dataset.panel !== state.tab);
+      $('msg').textContent = ''; $('msg').className = 'msg'; refresh();
+    });
+    $('date').onchange = () => { if (/^\d{4}-\d{2}-\d{2}$/.test($('date').value)) { saveDraft(); setDate($('date').value); } };
+    $('add-ex').onclick = addExercise;
+    $('save').onclick = save;
+  }
+  function foodPreview() {
+    const f = state.foods[$('f-saved').value];
+    if (!f) { $('f-preview').textContent = ''; return; }
+    const s = +$('f-serv').value || 1, r = (v) => Math.round((+v || 0) * s * 10) / 10;
+    $('f-preview').textContent = r(f.calories) + ' cal, ' + r(f.protein_g) + ' g protein, ' + r(f.carbs_g) + ' g carbs, ' + r(f.fat_g) + ' g fat';
+  }
+  function renderWater() {
+    const oz = state.water[state.date] || 0;
+    $('h-water-today').textContent = oz ? 'Logged so far ' + (state.date === localISO(new Date()) ? 'today' : 'that day') + ': ' + oz + ' oz.' : 'Tap to add a bottle, or type the amount.';
+  }
+  function otherEntries() {
+    const d = state.date;
+    if (state.tab === 'weigh') return $('w-weight').value ? [{ type: 'Weigh-in', date: d, weight: $('w-weight').value }] : [];
+    if (state.tab === 'food') {
+      const meal = $('f-meal').value;
+      if ($('f-saved').value !== '') return [{ type: 'Food', date: d, meal, savedFood: state.foods[$('f-saved').value].food, servings: $('f-serv').value || 1 }];
+      const e = { type: 'Food', date: d, meal, food: $('f-food').value.trim(), cal: $('f-cal').value, pro: $('f-pro').value, carb: $('f-carb').value, fat: $('f-fat').value, sodium: $('f-na').value };
+      return (e.food || e.cal) ? [e] : [];
+    }
+    if (state.tab === 'habits') {
+      const e = { type: 'Sleep, water, energy', date: d, water: $('h-water').value, sleep: $('h-sleep').value, energy: state.energy, hunger: state.hunger };
+      return (e.water || e.sleep || e.energy || e.hunger) ? [e] : [];
+    }
+    return [];
+  }
+  function problem() {
+    if (state.tab === 'weigh') { const w = +$('w-weight').value; if ($('w-weight').value && (w < 60 || w > 700)) return 'That weight looks off. Check the number.'; }
+    if (state.tab === 'food' && $('f-saved').value === '' && !$('f-food').value.trim() && $('f-cal').value) return 'Add a short description of what you ate.';
+    return '';
+  }
+
+  // ---------- Save ----------
+  function refresh() {
+    if (state.busy) return;
+    const n = state.tab === 'workout' ? workoutEntries().length : otherEntries().length;
+    const issue = problem();
+    $('save').disabled = !n || !!issue;
+    if (issue) { $('msg').textContent = issue; $('msg').className = 'msg bad'; $('msg').dataset.kind = 'check'; }
+    else if ($('msg').dataset.kind === 'check') { $('msg').textContent = ''; $('msg').className = 'msg'; $('msg').dataset.kind = ''; }
+    $('save').textContent = state.tab === 'workout'
+      ? (n ? 'Save ' + n + (n === 1 ? ' set' : ' sets') : 'Enter reps to save')
+      : { weigh: 'Save weigh-in', food: 'Save food', habits: 'Save' }[state.tab];
+  }
+  async function save() {
+    const work = state.tab === 'workout' ? workoutEntries() : otherEntries().map((entry) => ({ entry }));
+    if (!work.length || state.busy) return;
+    state.busy = true; $('save').disabled = true; $('save').textContent = 'Saving...';
+    $('msg').textContent = ''; $('msg').className = 'msg';
+    let res;
+    try {
+      const r = await fetch(state.entry.feed, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ entries: work.map((w) => w.entry) }) });
+      res = await r.json();
+    } catch (e) { res = { ok: false, error: 'Not saved. Check your signal and tap Save again.' }; }
+    state.busy = false;
+    if (!res || !res.ok) {
+      $('msg').textContent = (res && res.error) || 'Not saved. Try again.'; $('msg').className = 'msg bad'; $('msg').dataset.kind = 'server';
+      refresh(); $('save').disabled = false; return;
+    }
+    const n = res.saved;
+    if (state.tab === 'workout') {
+      work.forEach((w) => { w.el.classList.add('saved'); w.el.querySelectorAll('input').forEach((i) => i.disabled = true); w.el.insertAdjacentHTML('beforeend', '<span class="tag">Saved</span>'); });
+      document.querySelectorAll('.ex').forEach((card) => {
+        if (card.querySelector('.set:not(.saved)')) return;
+        card.querySelector('.exnote').disabled = true; card.querySelector('.done-tag').textContent = 'Done. '; card.open = false;
+      });
+      saveDraft();
+    } else if (state.tab === 'weigh') { $('w-last').textContent = 'Saved: ' + $('w-weight').value + ' lb on ' + shortDate(state.date) + '.'; $('w-weight').value = ''; }
+    else if (state.tab === 'food') { ['f-food', 'f-cal', 'f-pro', 'f-carb', 'f-fat', 'f-na'].forEach((id) => $(id).value = ''); $('f-saved').value = ''; $('f-serv').value = 1; $('f-saved').onchange(); }
+    else { state.water[state.date] = (state.water[state.date] || 0) + (+$('h-water').value || 0); ['h-water', 'h-sleep'].forEach((id) => $(id).value = ''); state.energy = state.hunger = ''; document.querySelectorAll('.scale .chip').forEach((x) => x.setAttribute('aria-pressed', 'false')); renderWater(); }
+    const skipped = (res.skipped || []).length;
+    $('msg').textContent = 'Saved' + (state.tab === 'workout' ? ' ' + n + (n === 1 ? ' set' : ' sets') : '') + '. It shows on your tracker now.' + (skipped ? ' ' + skipped + ' could not be saved.' : '');
+    $('msg').className = 'msg ok'; $('msg').dataset.kind = 'ok';
+    refresh();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
