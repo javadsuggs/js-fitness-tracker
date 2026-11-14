@@ -1805,6 +1805,9 @@ window.__startPage = function () {
     const lifts = d3.rollup(rows(st), (v) => v.length, (d) => d.date), walksN = d3.rollup(rows(wk), (v) => v.length, (d) => d.date);
     const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
     const WATER_GOAL = 128;
+    // Creatine days: habits.creatine = 1 on days it was taken (shaded on the chart to compare against weight)
+    const cre = (d) => ['1', 'yes', 'y', 'true'].includes(String(H.get(d)?.creatine ?? '').trim().toLowerCase());
+    const creDays = days.filter(cre);
     const series = [
       { key: 'cal', label: 'Calories', color: '#f2a65a', target: TARGET, unit: '', get: (d) => num(F.get(d)?.calories), fmt: fmtInt },
       { key: 'pro', label: 'Protein', color: '#4fd1a5', target: PROTEIN_TARGET, unit: ' g', get: (d) => num(F.get(d)?.protein_g), fmt: fmtG },
@@ -1836,6 +1839,8 @@ window.__startPage = function () {
     svg.append('line').attr('x1', mL).attr('x2', Wd - mR).attr('y1', y(100)).attr('y2', y(100))
       .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
     svg.append('text').attr('x', mL + 4).attr('y', y(100) - 5).call(cap).text('Target (100%)');
+    if (on('creatine') && creDays.length) svg.append('g').selectAll('rect').data(creDays).join('rect')
+      .attr('x', (d) => x(d) - x.step() / 2).attr('width', x.step()).attr('y', mT).attr('height', Ht - mB - mT).attr('fill', '#f2c36b').attr('opacity', 0.13);
     // training markers along the bottom
     const trained = days.filter((d) => lifts.get(d) || walksN.get(d));
     if (on('train')) svg.append('g').selectAll('path').data(trained).join('path')
@@ -1873,6 +1878,7 @@ window.__startPage = function () {
     item('weight', 'Weight (7-day avg, dots = weigh-ins)', 'var(--color-fg)', 'thick');
     for (const s of series) item(s.key, s.label, s.color);
     item('train', 'Trained', 'var(--color-fg-muted)', 'tri');
+    if (creDays.length) item('creatine', 'Creatine days (shaded)', '#f2c36b');
     const tip = d3.select(el).append('div').attr('class', 'tip').style('opacity', 0);
     const step = x.step();
     const show = (ev, d) => {
@@ -1887,6 +1893,7 @@ window.__startPage = function () {
         row.append('span').style('color', s.color).text('● ');
         row.append('span').text(`${s.label}: ${s.fmt(v)}${s.partial && s.partial(d) ? '+' : ''}${s.unit} (${Math.round(pct(s, d))}% of ${s.fmt(s.target)})`);
       }
+      if (cre(d)) tip.append('div').text('Creatine: taken');
       if (lifts.get(d) || walksN.get(d)) tip.append('div').text(`Trained: ${[lifts.get(d) ? `${focusBy.get(d) || 'strength'} (${lifts.get(d)} exercises)` : '', walksN.get(d) ? 'walk' : ''].filter(Boolean).join(', ')}`);
       const tw = tip.node().offsetWidth, px = (x(d) / Wd) * el.clientWidth;
       const left = px + 14 + tw <= el.clientWidth ? px + 14 : px - 14 - tw;
