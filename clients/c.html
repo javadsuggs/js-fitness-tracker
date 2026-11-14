@@ -26,7 +26,16 @@
   .welcome { margin: 0 0 12px; padding: 14px 16px; border: 1px solid #2c3038; border-radius: 10px; background: #1b1e23; color: #eceef1; font-size: 14.5px; line-height: 1.45; }
   .log-btn { display: inline-block; margin-top: 10px; padding: 9px 16px; border-radius: 999px; background: #4fd1a5; color: #0d1f18; font-weight: 700; text-decoration: none; font-size: 14px; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+  // If anything fails before the tracker draws, say so on screen instead of leaving "Loading" up.
+  window.__bootErr = function (msg) {
+    var b = document.getElementById('boot'); if (!b || b.dataset.err) return; b.dataset.err = '1';
+    b.innerHTML = 'The tracker could not load on this device.<br><span style="font-size:12.5px">Details: ' + String(msg).replace(/[<>&]/g, '').slice(0, 200) +
+      '</span><br><a href="" style="color:#4fd1a5">Tap to try again</a>';
+  };
+  window.addEventListener('error', function (e) { if (document.getElementById('boot')) window.__bootErr((e.message || 'script error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" onerror="window.__bootErr('Could not load the chart library (d3). Check your connection or content blocker.')"></script>
 </head>
 <body>
 <div id="boot">Loading tracker…</div>
@@ -1933,10 +1942,17 @@ window.__startPage = function () {
   if (!entry) return fail('No tracker found for <b>' + slug.replace(/[<>&]/g, '') + '</b>. Check the link with your trainer.');
   let feed;
   try {
-    const r = await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now());
-    feed = await r.json();
-  } catch (e) { return fail('Could not reach <b>' + entry.name + '</b>\'s data sheet. Try again in a minute.'); }
+    boot.textContent = 'Loading ' + entry.name + '\'s data\u2026';
+    const slow = setTimeout(() => { boot.textContent = 'Still loading. The data sheet can take up to 20 seconds to wake up\u2026'; }, 8000);
+    const ctl = window.AbortController ? new AbortController() : null;
+    const stop = setTimeout(() => ctl && ctl.abort(), 45000);
+    try {
+      const r = await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now(), ctl ? { signal: ctl.signal } : {});
+      feed = await r.json();
+    } finally { clearTimeout(slow); clearTimeout(stop); }
+  } catch (e) { return fail('Could not reach <b>' + entry.name + '</b>\'s data sheet. <a href="" style="color:#4fd1a5">Tap to try again</a>.<br><span style="font-size:12.5px">Details: ' + String(e && (e.name + ' ' + e.message)).replace(/[<>&]/g, '') + '</span>'); }
   if (!feed || !feed.data) return fail('The data sheet answered, but not in the expected format.');
+  if (!window.d3) return fail('Could not load the chart library. If you use a content blocker, allow cdnjs.cloudflare.com, then <a href="" style="color:#4fd1a5">tap to try again</a>.');
   window.__CFG__ = feed.settings || {};
   window.__DATA__ = feed.data;
   window.__SNAPSHOT__ = 'live from the logging sheet';

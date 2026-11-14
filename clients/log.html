@@ -203,8 +203,13 @@
     if (!entry) return fail('No tracker found for this link. Check it with your trainer.');
     state.entry = entry;
     let feed;
-    try { feed = await (await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now())).json(); }
-    catch (e) { return fail('Could not reach your data sheet. Check your signal and reload.'); }
+    $('sub').textContent = 'Loading your program\u2026';
+    const slow = setTimeout(() => { $('sub').textContent = 'Still loading. The data sheet can take up to 20 seconds to wake up\u2026'; }, 8000);
+    const ctl = window.AbortController ? new AbortController() : null;
+    const stop = setTimeout(() => ctl && ctl.abort(), 45000);
+    try { feed = await (await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now(), ctl ? { signal: ctl.signal } : {})).json(); }
+    catch (e) { return fail('Could not reach your data sheet. <a href="">Tap to try again</a>.<br><small>Details: ' + esc(e && (e.name + ' ' + e.message)) + '</small>'); }
+    finally { clearTimeout(slow); clearTimeout(stop); }
     state.feed = feed;
     const name = (feed.settings && feed.settings.name) || entry.name;
     document.title = 'Log: ' + name;
