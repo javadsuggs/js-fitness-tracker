@@ -188,7 +188,13 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
   var col = {};
   head.forEach(function (h, i) { col[h] = i; });
   var get = function (r, key) { var i = col[Q[key]]; return i == null ? '' : r[i]; };
-  var num = function (v) { if (v === '' || v == null) return ''; var n = Number(String(v).replace(/,/g, '')); return isFinite(n) ? n : ''; };
+  // "1,800" is a thousands comma. "179,8" or "179,85" is a decimal comma typed by mistake.
+  var num = function (v) {
+    if (v === '' || v == null) return '';
+    var s = String(v).trim();
+    s = /^-?\d+,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g, '');
+    var n = Number(s); return s !== '' && isFinite(n) ? n : '';
+  };
   var dateOf = function (r) { var d = get(r, 'date'); if (d instanceof Date) return fmt(d); var s = String(d || ''); var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); return m ? m[3] + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2) : s.slice(0, 10); };
   var foods = {};
   (foodRows || []).slice(1).forEach(function (f) { var n = String(f[0] || '').trim(); if (n) foods[n] = { cal: num(f[1]), pro: num(f[2]), carb: num(f[3]), fat: num(f[4]), na: num(f[5]) }; });
@@ -198,7 +204,9 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
   values.slice(1).forEach(function (r) {
     var date = dateOf(r), type = String(get(r, 'type') || '');
     if (!date) return;
-    if (type === 'Weigh-in' && num(get(r, 'weight')) !== '') weigh.push({ date: date, weight_lb: num(get(r, 'weight')) });
+    // Skip body weights no adult could have (a typo like 1798), so one bad entry cannot wreck the charts.
+    var wt = num(get(r, 'weight'));
+    if (type === 'Weigh-in' && wt !== '' && wt >= 60 && wt <= 700) weigh.push({ date: date, weight_lb: wt });
     else if (type === 'Food') {
       var meal = String(get(r, 'meal') || 'Snack');
       var key = date + ' ' + meal; mealCount[key] = (mealCount[key] || 0) + 1;

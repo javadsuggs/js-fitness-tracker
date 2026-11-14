@@ -85,5 +85,13 @@
   "trainer": "Quinlen",
   "feed": "feeds/rae.json",
   "demo": true
+ },
+ {
+  "slug": "test-q7m4",
+  "name": "TEST client",
+  "location": "Elite Tech. - Clinton",
+  "trainer": "Quinlen",
+  "feed": "https://script.google.com/macros/s/AKfycbwUmtciSKJ4PhfePfUXExCUElpRojh_wTU9hGUF8V2r4H7s6v8UD5gQwwblDWMvjV9r/exec",
+  "demo": true
  }
 ]
