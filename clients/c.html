@@ -469,9 +469,9 @@
   <details class="card sec" id="cardio">
     <summary><h2>Cardio</h2><span class="peek" data-draw="pk-cardio" data-source="walk-totals">—</span></summary>
     <div class="sec-body">
-    <p class="note">Incline treadmill walks: 20 minutes daily at 8% incline, 2.5 to 3.0 mph. Calories burned are estimates from the standard treadmill formula.</p>
+    <p class="note">Cardio sessions you log: the machine, minutes, speed or level, and incline. Calories burned are what your machine or watch showed, when you add them.</p>
     <div class="tiles mini">
-      <div><p class="tile-label">Walks logged</p><p class="tile-num"><span data-draw="walk-count" data-source="walk-totals" data-field="walks">—</span></p></div>
+      <div><p class="tile-label">Sessions logged</p><p class="tile-num"><span data-draw="walk-count" data-source="walk-totals" data-field="walks">—</span></p></div>
       <div><p class="tile-label">Total minutes</p><p class="tile-num"><span data-draw="walk-min" data-source="walk-totals" data-field="minutes">—</span></p></div>
       <div><p class="tile-label">Est. calories burned</p><p class="tile-num"><span data-draw="walk-cal" data-source="walk-totals" data-field="est_calories">—</span></p></div>
     </div>
@@ -479,10 +479,11 @@
       <table data-source="walks" data-row-key="date">
         <thead><tr>
           <th data-field="date">Day</th>
-          <th data-field="minutes" class="n">Minutes</th>
-          <th data-field="incline_pct" class="n">Incline (%)</th>
-          <th data-field="speed_mph" class="n">Speed (mph)</th>
-          <th data-field="est_calories" class="n">Est. calories</th>
+          <th data-field="machine">Machine</th>
+          <th data-field="minutes" class="n">Min</th>
+          <th data-field="incline_pct" class="n">Incline</th>
+          <th data-field="speed_mph" class="n">Speed or level</th>
+          <th data-field="est_calories" class="n">Cal</th>
         </tr></thead>
         <tbody data-draw="walk-rows"></tbody>
       </table>
@@ -994,11 +995,12 @@ window.__startPage = function () {
     const w = dash.data('walks');
     tb.replaceChildren();
     if (w.status !== 'ok') return;
-    const fmtDay = (s) => d3.utcFormat('%a %b %-d')(new Date(s + 'T12:00:00Z'));
+    const fmtDay = (s) => d3.utcFormat('%b %-d')(new Date(s + 'T12:00:00Z'));
     for (const r of [...w.data].sort((a, b) => (a.date < b.date ? -1 : 1))) {
       const tr = document.createElement('tr');
       tr.dataset.key = r.date;
-      const cells = [[fmtDay(r.date), ''], [r.minutes, 'n'], [r.incline_pct, 'n'], [r.speed_mph, 'n'], [r.est_calories, 'n']];
+      const pace = r.speed_mph !== '' && r.speed_mph != null ? r.speed_mph + ' mph' : (r.level ? 'Level ' + r.level : '');
+      const cells = [[fmtDay(r.date), ''], [r.machine || (r.speed_mph ? 'Treadmill' : ''), ''], [r.minutes, 'n'], [r.incline_pct !== '' && r.incline_pct != null ? r.incline_pct + '%' : '', 'n'], [pace, 'n'], [r.est_calories, 'n']];
       for (const [t, cls] of cells) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
       tb.append(tr);
     }
@@ -1282,7 +1284,7 @@ window.__startPage = function () {
   dash.draw('pk-tape', peekRow('tape-latest', (r) => (r.waist_in != null ? `Waist ${one(r.waist_in)} in` : 'Logged'), 'Not started'));
   dash.draw('pk-weight', peekRow('weight-week', (r) => `7-day avg ${one(r.avg_lb)} lb`, 'No weigh-ins yet'));
   dash.draw('pk-nutrition', peekRow('day-latest', (r) => `${r.date === todayStr ? 'Today' : dayShort(r.date)}: ${fmtInt(r.calories)} cal, ${fmtG(r.protein_g)} g protein`, 'Nothing logged'));
-  dash.draw('pk-cardio', peekRow('walk-totals', (r) => (r.walks ? `${r.walks} walk${r.walks === 1 ? '' : 's'}, ${fmtInt(r.minutes)} min` : null), 'None yet'));
+  dash.draw('pk-cardio', peekRow('walk-totals', (r) => (r.walks ? `${r.walks} session${r.walks === 1 ? '' : 's'}, ${fmtInt(r.minutes)} min` : null), 'None yet'));
   dash.draw('pk-sleep', peekRow('habit-stats', (r) => (r.sleep_avg7 != null ? `Avg ${one(r.sleep_avg7)} h, last 7 nights` : null), 'Not logged yet'));
   dash.draw('pk-water', peekRow('habit-stats', (r) => (r.water_avg7 != null ? `Avg ${fmtInt(Math.round(r.water_avg7))} oz a day` : null), 'Not logged yet'));
   dash.draw('pk-photos', (el) => {
@@ -1907,7 +1909,7 @@ window.__startPage = function () {
         row.append('span').text(`${s.label}: ${s.fmt(v)}${s.partial && s.partial(d) ? '+' : ''}${s.unit} (${Math.round(pct(s, d))}% of ${s.fmt(s.target)})`);
       }
       if (cre(d)) tip.append('div').text('Creatine: taken');
-      if (lifts.get(d) || walksN.get(d)) tip.append('div').text(`Trained: ${[lifts.get(d) ? `${focusBy.get(d) || 'strength'} (${lifts.get(d)} exercises)` : '', walksN.get(d) ? 'walk' : ''].filter(Boolean).join(', ')}`);
+      if (lifts.get(d) || walksN.get(d)) tip.append('div').text(`Trained: ${[lifts.get(d) ? `${focusBy.get(d) || 'strength'} (${lifts.get(d)} exercises)` : '', walksN.get(d) ? 'cardio' : ''].filter(Boolean).join(', ')}`);
       const tw = tip.node().offsetWidth, px = (x(d) / Wd) * el.clientWidth;
       const left = px + 14 + tw <= el.clientWidth ? px + 14 : px - 14 - tw;
       tip.style('left', `${Math.max(0, left)}px`).style('top', '24px').style('opacity', 1);

@@ -40,15 +40,22 @@ var Q = {
   ibWeight: 'Scan weight (lb)', ibMuscle: 'Skeletal muscle (lb)', ibFat: 'Body fat mass (lb)', ibPct: 'Body fat (%)', ibVisc: 'Visceral fat level',
   ibArmR: 'Right arm muscle (% of ideal)', ibArmL: 'Left arm muscle (% of ideal)', ibTrunk: 'Trunk muscle (% of ideal)', ibLegR: 'Right leg muscle (% of ideal)', ibLegL: 'Left leg muscle (% of ideal)',
   cardioMin: 'Cardio minutes', cardioWhat: 'Cardio type and notes', cardioIncline: 'Incline (%)', cardioSpeed: 'Speed (mph)', cardioCal: 'Calories burned (if your device shows it)',
+  cardioMachine: 'Cardio machine', cardioLevel: 'Machine level (1 to 20)',
+  creatine: 'Took creatine today',
   noteFrom: 'Note from', note: 'Note'
 };
 var TYPES = ['Weigh-in', 'Food', 'Workout', 'Sleep, water, energy', 'Measurements', 'InBody scan', 'Cardio', 'Trainer note'];
 var MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Pre-workout', 'Post-workout'];
 var FOCUS = ['Legs', 'Chest', 'Back', 'Arms', 'Shoulders', 'Core', 'Full body', 'Other'];
+var MACHINES = ['Treadmill', 'Outdoor walk or run', 'Stairmaster', 'Bike', 'Elliptical', 'Rower', 'Other'];
+var SPEEDS = (function () { var a = []; for (var v = 0.5; v <= 12; v += 0.5) a.push(v.toFixed(1)); return a; })();
+var LEVELS = (function () { var a = []; for (var v = 1; v <= 20; v++) a.push(String(v)); return a; })();
+var SCRIPT_VERSION = '2.3';
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Tracker')
     .addItem('Build logging form', 'buildForm')
+    .addItem('Add new questions to my form (v2.3)', 'upgradeForm')
     .addItem('Update saved foods in the form', 'refreshFoods')
     .addItem('Show my tracker links', 'showLinks')
     .addToUi();
@@ -116,13 +123,18 @@ function buildForm() {
   num(Q.sleep); num(Q.water, 'Add each bottle as you finish it, or the day total once.');
   form.addScaleItem().setTitle(Q.energy).setBounds(1, 5);
   form.addScaleItem().setTitle(Q.hunger).setBounds(1, 5);
+  form.addCheckboxItem().setTitle(Q.creatine).setChoiceValues(['Yes']);
   section('Measurements');
   form.addTextItem().setTitle(Q.tapeTime);
   [Q.waist, Q.hips, Q.chest, Q.shoulders, Q.neck, Q.armL, Q.armR, Q.thighL, Q.thighR, Q.calfL, Q.calfR].forEach(function (t) { num(t); });
   section('InBody scan');
   [Q.ibWeight, Q.ibMuscle, Q.ibFat, Q.ibPct, Q.ibVisc, Q.ibArmR, Q.ibArmL, Q.ibTrunk, Q.ibLegR, Q.ibLegL].forEach(function (t) { num(t); });
   section('Cardio');
-  num(Q.cardioMin).setRequired(true); form.addTextItem().setTitle(Q.cardioWhat); num(Q.cardioIncline); num(Q.cardioSpeed); num(Q.cardioCal);
+  form.addListItem().setTitle(Q.cardioMachine).setChoiceValues(MACHINES);
+  num(Q.cardioMin).setRequired(true);
+  form.addListItem().setTitle(Q.cardioSpeed).setChoiceValues(SPEEDS).setHelpText('Treadmill or outdoor only.');
+  form.addListItem().setTitle(Q.cardioLevel).setChoiceValues(LEVELS).setHelpText('Stairmaster, bike, elliptical or rower.');
+  num(Q.cardioIncline); num(Q.cardioCal); form.addTextItem().setTitle(Q.cardioWhat);
   section('Trainer note');
   form.addTextItem().setTitle(Q.noteFrom).setHelpText('Your name');
   form.addParagraphTextItem().setTitle(Q.note).setRequired(true);
@@ -167,10 +179,54 @@ function showLinks() {
   SpreadsheetApp.getUi().alert('Logging form:\n' + (s.form_url || '(build the form first)') + '\n\nData feed:\n' + (feed || '(deploy as a web app first)'));
 }
 
+// Adds the v2.3 questions (creatine, cardio machine and level) to a form built by an older script.
+// Existing questions and answers stay as they are.
+function upgradeForm() {
+  var s = readSettings_();
+  var ui = SpreadsheetApp.getUi();
+  if (!s.form_id) { ui.alert('Build the form first.'); return; }
+  var form = FormApp.openById(s.form_id);
+  var added = [];
+  var find = function (title) { return form.getItems().filter(function (i) { return i.getTitle() === title; })[0]; };
+  if (!find(Q.creatine)) {
+    var after = find(Q.hunger);
+    var c = form.addCheckboxItem().setTitle(Q.creatine).setChoiceValues(['Yes']);
+    if (after) form.moveItem(c.getIndex(), after.getIndex() + 1);
+    added.push('creatine');
+  }
+  if (!find(Q.cardioMachine)) {
+    var page = find('Cardio');
+    var m = form.addListItem().setTitle(Q.cardioMachine).setChoiceValues(MACHINES);
+    if (page) form.moveItem(m.getIndex(), page.getIndex() + 1);
+    added.push('cardio machine');
+  }
+  if (!find(Q.cardioLevel)) {
+    var sp = find(Q.cardioSpeed) || find(Q.cardioMin);
+    var l = form.addListItem().setTitle(Q.cardioLevel).setChoiceValues(LEVELS).setHelpText('Stairmaster, bike, elliptical or rower.');
+    if (sp) form.moveItem(l.getIndex(), sp.getIndex() + 1);
+    added.push('machine level');
+  }
+  ui.alert(added.length ? 'Added to your form: ' + added.join(', ') + '.' : 'Your form already has the new questions.');
+}
+
+function responsesSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  return ss.getSheetByName('Responses') || ss.getSheets().filter(function (sh) { return /^Form Responses/.test(sh.getName()) || (sh.getFormUrl && sh.getFormUrl()); })[0];
+}
+// App entries can carry answers the form has no column for yet (for example creatine on an older form).
+// Add any missing column titles to the end of the header row so nothing is dropped.
+function ensureColumns_(sh, titles) {
+  if (!sh) return;
+  var last = Math.max(sh.getLastColumn(), 1);
+  var head = sh.getRange(1, 1, 1, last).getValues()[0].map(function (h) { return String(h).trim(); });
+  var missing = titles.filter(function (t) { return head.indexOf(t) < 0; });
+  if (missing.length) sh.getRange(1, last + 1, 1, missing.length).setValues([missing]);
+}
+
 // ---------- Data feed for the tracker page ----------
 function doGet() {
   var ss = SpreadsheetApp.getActive();
-  var resp = ss.getSheetByName('Responses') || ss.getSheets().filter(function (sh) { return /^Form Responses/.test(sh.getName()) || (sh.getFormUrl && sh.getFormUrl()); })[0];
+  var resp = responsesSheet_();
   var values = resp ? resp.getDataRange().getValues() : [[]];
   var foodsSh = ss.getSheetByName('Foods');
   var foods = foodsSh ? foodsSh.getDataRange().getValues() : [];
@@ -194,6 +250,9 @@ function doPost(e) {
   var resp = ss.getSheetByName('Responses');
   if (!resp) return json_({ ok: false, error: 'This sheet has no Responses tab yet. Build the logging form first.' });
   var tz = ss.getSpreadsheetTimeZone();
+  var used = {};
+  (Array.isArray(body.entries) ? body.entries : []).forEach(function (en) { Object.keys(en || {}).forEach(function (k) { if (Q[k]) used[Q[k]] = 1; }); });
+  ensureColumns_(resp, Object.keys(used));
   var head = resp.getRange(1, 1, 1, resp.getLastColumn()).getValues()[0];
   var built = buildAppRows(head, body.entries, new Date(), function (s) { return Utilities.parseDate(s, tz, 'yyyy-MM-dd'); });
   if (!built.rows.length) return json_({ ok: false, error: built.errors[0] || 'Nothing to save.' });
@@ -209,11 +268,13 @@ function doPost(e) {
 /** Pure function: turns app entries into rows that line up with the Responses header. */
 function buildAppRows(head, entries, now, toDate) {
   var col = {};
-  head.forEach(function (h, i) { col[String(h).trim()] = i; });
+  // A title can appear twice if a column was added before the form added its own. Write to the first.
+  head.forEach(function (h, i) { var t = String(h).trim(); if (col[t] == null) col[t] = i; });
   var rows = [], errors = [];
-  var NUMS = { weight: 1, servings: 1, cal: 1, pro: 1, carb: 1, fat: 1, sodium: 1, lift: 1, sets: 1, repsAssigned: 1, repsDone: 1, sleep: 1, water: 1, energy: 1, hunger: 1 };
-  var TEXT = { meal: 1, savedFood: 1, food: 1, focus: 1, exercise: 1, liftNotes: 1 };
-  var NEED = { 'Weigh-in': ['weight'], 'Food': ['meal'], 'Workout': ['exercise'], 'Sleep, water, energy': [] };
+  var NUMS = { weight: 1, servings: 1, cal: 1, pro: 1, carb: 1, fat: 1, sodium: 1, lift: 1, sets: 1, repsAssigned: 1, repsDone: 1, sleep: 1, water: 1, energy: 1, hunger: 1,
+    cardioMin: 1, cardioIncline: 1, cardioSpeed: 1, cardioLevel: 1, cardioCal: 1 };
+  var TEXT = { meal: 1, savedFood: 1, food: 1, focus: 1, exercise: 1, liftNotes: 1, cardioMachine: 1, cardioWhat: 1 };
+  var NEED = { 'Weigh-in': ['weight'], 'Food': ['meal'], 'Workout': ['exercise'], 'Sleep, water, energy': [], 'Cardio': ['cardioMin'] };
   (Array.isArray(entries) ? entries : []).slice(0, 80).forEach(function (en, n) {
     var label = 'Entry ' + (n + 1);
     if (!en || !NEED[en.type]) { errors.push(label + ': unknown type.'); return; }
@@ -227,6 +288,7 @@ function buildAppRows(head, entries, now, toDate) {
     Object.keys(en).forEach(function (k) {
       var v = en[k];
       if (v === '' || v == null) return;
+      if (k === 'creatine') { if (v === true || /^(yes|1|true)$/i.test(String(v))) { put(k, 'Yes'); any = true; } return; }
       if (NUMS[k]) {
         var x = Number(v);
         if (!isFinite(x) || x < 0 || x > 100000) { bad = true; return; }
@@ -235,7 +297,7 @@ function buildAppRows(head, entries, now, toDate) {
         // A leading = + - or @ would make the sheet treat the text as a formula.
         var s = String(v).trim().slice(0, 500);
         if (/^[=+\-@]/.test(s)) s = "'" + s;
-        put(k, s); if (k !== 'meal' && k !== 'focus') any = true;
+        put(k, s); if (k !== 'meal' && k !== 'focus' && k !== 'cardioMachine') any = true;
       }
     });
     if (bad) { errors.push(label + ': a number was not valid.'); return; }
@@ -253,8 +315,13 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
   extra = extra || {};
   var head = (values[0] || []).map(function (h) { return String(h).trim(); });
   var col = {};
-  head.forEach(function (h, i) { col[h] = i; });
-  var get = function (r, key) { var i = col[Q[key]]; return i == null ? '' : r[i]; };
+  head.forEach(function (h, i) { (col[h] = col[h] || []).push(i); });
+  // First non-empty answer among columns with this title (a title can appear twice after an upgrade).
+  var get = function (r, key) {
+    var ix = col[Q[key]] || [];
+    for (var j = 0; j < ix.length; j++) { var v = r[ix[j]]; if (v !== '' && v != null) return v; }
+    return '';
+  };
   // "1,800" is a thousands comma. "179,8" or "179,85" is a decimal comma typed by mistake.
   var num = function (v) {
     if (v === '' || v == null) return '';
@@ -288,7 +355,8 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
       lift.push({ date: date, exercise: String(get(r, 'exercise') || ''), sets: num(get(r, 'sets')), reps_assigned: num(get(r, 'repsAssigned')),
         reps_done: num(get(r, 'repsDone')), weight_lb: num(get(r, 'lift')), notes: String(get(r, 'liftNotes') || ''), focus: String(get(r, 'focus') || '') });
     } else if (type === 'Sleep, water, energy') {
-      var h = habit[date] || (habit[date] = { date: date, sleep_hr: '', water_oz: '', energy: '', hunger: '' });
+      var h = habit[date] || (habit[date] = { date: date, sleep_hr: '', water_oz: '', energy: '', hunger: '', creatine: '' });
+      if (/yes/i.test(String(get(r, 'creatine') || ''))) h.creatine = 1;
       if (num(get(r, 'sleep')) !== '') h.sleep_hr = num(get(r, 'sleep'));
       if (num(get(r, 'water')) !== '') h.water_oz = (Number(h.water_oz) || 0) + num(get(r, 'water'));
       if (num(get(r, 'energy')) !== '') h.energy = num(get(r, 'energy'));
@@ -301,7 +369,8 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
       inbody.push({ date: date, machine: 'InBody', time: '', weight_lb: num(get(r, 'ibWeight')), muscle_lb: num(get(r, 'ibMuscle')), fat_mass_lb: num(get(r, 'ibFat')),
         body_fat_pct: num(get(r, 'ibPct')), visceral_fat: num(get(r, 'ibVisc')), arm_r_pct: num(get(r, 'ibArmR')), arm_l_pct: num(get(r, 'ibArmL')), trunk_pct: num(get(r, 'ibTrunk')), leg_r_pct: num(get(r, 'ibLegR')), leg_l_pct: num(get(r, 'ibLegL')) });
     } else if (type === 'Cardio') {
-      walks.push({ date: date, minutes: num(get(r, 'cardioMin')), incline_pct: num(get(r, 'cardioIncline')), speed_mph: num(get(r, 'cardioSpeed')), est_calories: num(get(r, 'cardioCal')), notes: String(get(r, 'cardioWhat') || '') });
+      walks.push({ date: date, minutes: num(get(r, 'cardioMin')), incline_pct: num(get(r, 'cardioIncline')), speed_mph: num(get(r, 'cardioSpeed')), est_calories: num(get(r, 'cardioCal')), notes: String(get(r, 'cardioWhat') || ''),
+        machine: String(get(r, 'cardioMachine') || ''), level: num(get(r, 'cardioLevel')) });
     } else if (type === 'Trainer note') {
       notes.push({ date: date, source: String(get(r, 'noteFrom') || 'Trainer'), note: String(get(r, 'note') || '') });
     }
@@ -318,10 +387,10 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
     'weigh-ins': csv(['date', 'weight_lb'], weigh),
     'food-log': csv(['entry', 'date', 'meal', 'item', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'sodium_mg', 'basis'], food),
     'strength': csv(['date', 'exercise', 'sets', 'reps_assigned', 'reps_done', 'weight_lb', 'notes', 'focus'], lift),
-    'habits': csv(['date', 'sleep_hr', 'water_oz', 'energy', 'hunger'], habits),
+    'habits': csv(['date', 'sleep_hr', 'water_oz', 'energy', 'hunger', 'creatine'], habits),
     'tape': csv(['date', 'time', 'waist_in', 'hips_in', 'chest_in', 'shoulders_in', 'neck_in', 'arm_l_in', 'arm_r_in', 'thigh_l_in', 'thigh_r_in', 'calf_l_in', 'calf_r_in'], tape),
     'inbody': csv(['date', 'machine', 'time', 'weight_lb', 'muscle_lb', 'fat_mass_lb', 'body_fat_pct', 'visceral_fat', 'arm_r_pct', 'arm_l_pct', 'trunk_pct', 'leg_r_pct', 'leg_l_pct'], inbody),
-    'walks': csv(['date', 'minutes', 'incline_pct', 'speed_mph', 'est_calories', 'notes'], walks),
+    'walks': csv(['date', 'minutes', 'incline_pct', 'speed_mph', 'est_calories', 'notes', 'machine', 'level'], walks),
     'trainer-notes': csv(['date', 'source', 'note'], notes),
     'photos': 'date,pose,src\n',
     'plan': tabCsv(extra.plan, ['order', 'slot', 'item', 'calories', 'protein_g', 'carbs_g', 'fat_g']),
@@ -366,8 +435,10 @@ function buildFeed(settings, values, foodRows, fmt, extra) {
     if (settings[k] !== '' && settings[k] != null) publicSettings[k] = settings[k];
   });
   return {
-    script_version: '2.2',
+    script_version: SCRIPT_VERSION,
     can_log: true,
+    // What the app's log screen may send to this sheet. Older sheets leave this out, so the app hides those inputs.
+    features: ['creatine', 'cardio'],
     settings: publicSettings,
     data: data,
     summary: {

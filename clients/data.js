@@ -5,7 +5,7 @@
 
   TrackerData.listClients()            -> [{ slug, name, trainer, goal, location, demo, ... }]
   TrackerData.getClient(slug)          -> that entry, or null
-  TrackerData.loadClient(entry, opts)  -> { settings, data, summary, canLog, formUrl }
+  TrackerData.loadClient(entry, opts)  -> { settings, data, summary, canLog, formUrl, features }
                                           opts.onSlow(): called once if loading takes over 8 seconds
   TrackerData.saveEntries(entry, list) -> { ok, saved, skipped, error }
   Errors thrown carry .kind: 'list' | 'network' | 'format', and .detail for the technical reason.
@@ -48,6 +48,8 @@
             summary: feed.summary || {},
             // Sheets on script v2.2 or later take entries from the app's own log screen. Older sheets use the Google Form.
             canLog: !!feed.can_log && isSheet(entry),
+            // Extra log inputs this sheet accepts (script v2.3+: 'creatine', 'cardio'). Older sheets send none.
+            features: Array.isArray(feed.features) ? feed.features : [],
             formUrl: s.form_url || entry.form || ''
           };
         })

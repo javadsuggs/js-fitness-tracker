@@ -47,6 +47,8 @@
   input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   input[type=date] { width: auto; }
   .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 16px 0 12px; }
+  .tabs.five { grid-template-columns: repeat(3, 1fr); }
+  .toggle { width: 100%; margin-top: 10px; padding: 12px; }
   .tabs button, .chip {
     font: inherit; font-size: 13.5px; font-weight: 600; color: var(--fg); background: var(--panel); border: 1px solid var(--line);
     border-radius: 10px; padding: 10px 4px; cursor: pointer;
@@ -104,6 +106,7 @@
       <button role="tab" data-tab="weigh" aria-selected="false">Weigh-in</button>
       <button role="tab" data-tab="food" aria-selected="false">Food</button>
       <button role="tab" data-tab="habits" aria-selected="false">Water, sleep</button>
+      <button role="tab" data-tab="cardio" aria-selected="false" hidden>Cardio</button>
     </div>
 
     <section data-panel="workout">
@@ -154,11 +157,30 @@
         <h2>Sleep last night</h2>
         <label class="f" style="margin-top:10px">Hours <input id="h-sleep" type="number" inputmode="decimal" step="0.25" min="0" max="24" placeholder="e.g. 7.5"></label>
       </div>
+      <div class="card" id="h-cre-card" hidden>
+        <h2>Creatine</h2>
+        <p class="meta" id="h-cre-note">Tap if you took it today.</p>
+        <button class="chip toggle" id="h-cre" type="button" aria-pressed="false">Took creatine</button>
+      </div>
       <div class="card">
         <h2>How do you feel?</h2>
         <p class="meta">1 is low, 5 is high.</p>
         <p class="note">Energy</p><div class="scale" id="h-energy"></div>
         <p class="note">Hunger</p><div class="scale" id="h-hunger"></div>
+      </div>
+    </section>
+
+    <section data-panel="cardio" hidden>
+      <div class="card">
+        <label class="f">Machine <select id="c-machine"></select></label>
+        <label class="f" style="margin-top:12px">Minutes <input id="c-min" type="number" inputmode="numeric" min="1" max="600" placeholder="e.g. 20"></label>
+        <div class="grid2" style="margin-top:12px">
+          <label class="f" id="c-speed-box">Speed (mph) <select id="c-speed"></select></label>
+          <label class="f" id="c-level-box" hidden>Level <select id="c-level"></select></label>
+          <label class="f">Incline (%) <input id="c-inc" type="number" inputmode="decimal" min="0" max="40" placeholder="optional"></label>
+        </div>
+        <label class="f" style="margin-top:12px">Calories burned (if your machine or watch shows it) <input id="c-cal" type="number" inputmode="numeric" min="0" placeholder="optional"></label>
+        <label class="f" style="margin-top:12px">Notes (optional) <input id="c-notes" type="text" placeholder="e.g. intervals, felt easy"></label>
       </div>
     </section>
 
@@ -203,7 +225,7 @@
   };
 
   const slug = new URLSearchParams(location.search).get('c');
-  const state = { tab: 'workout', date: localISO(new Date()), day: null, feed: null, entry: null, program: [], foods: [], last: {}, water: {}, extra: {}, energy: '', hunger: '', busy: false };
+  const state = { features: [], creatine: false, creDays: {}, tab: 'workout', date: localISO(new Date()), day: null, feed: null, entry: null, program: [], foods: [], last: {}, water: {}, extra: {}, energy: '', hunger: '', busy: false };
   const fail = (html) => { $('sub').innerHTML = html; };
 
   async function boot() {
@@ -224,14 +246,17 @@
     if (!feed.canLog) {
       return fail(formUrl ? 'Your tracker logs through your form for now. <a href="' + esc(formUrl) + '">Open your logging form</a>.' : 'Logging is not set up for this tracker yet. Ask your trainer.');
     }
-    if (formUrl) { $('more-link').href = formUrl; $('more').hidden = false; }
+    state.features = feed.features || [];
+    if (state.features.includes('cardio')) { document.querySelector('[data-tab=cardio]').hidden = false; document.querySelector('.tabs').classList.add('five'); }
+    $('h-cre-card').hidden = !state.features.includes('creatine');
+    if (formUrl) { $('more-link').href = formUrl; $('more').hidden = false; if (state.features.includes('cardio')) $('more-link').previousSibling.textContent = 'Measurements and InBody scans: '; }
     state.program = parseCsv(feed.data.program).sort((a, b) => (+a.order || 0) - (+b.order || 0));
     state.foods = parseCsv(feed.data.foods);
     parseCsv(feed.data.strength).forEach((r) => {
       const k = String(r.exercise || '').toLowerCase().trim();
       if (r.weight_lb !== '') (state.last[k] = state.last[k] || []).push({ w: +r.weight_lb, date: r.date });
     });
-    parseCsv(feed.data.habits).forEach((r) => { state.water[r.date] = +r.water_oz || 0; });
+    parseCsv(feed.data.habits).forEach((r) => { state.water[r.date] = +r.water_oz || 0; if (/^(1|yes|y|true)$/i.test(String(r.creatine || '').trim())) state.creDays[r.date] = true; });
     const w = parseCsv(feed.data['weigh-ins']).pop();
     if (w) $('w-last').textContent = 'Last weigh-in: ' + w.weight_lb + ' lb on ' + shortDate(w.date) + '.';
     $('sub').textContent = 'Saves straight to your tracker.';
@@ -382,6 +407,17 @@
       });
     });
     document.querySelectorAll('[data-panel] input, [data-panel] select').forEach((i) => { if (!i.oninput) i.addEventListener('input', refresh); });
+    const opts = (arr) => arr.map((v) => '<option>' + v + '</option>').join('');
+    $('c-machine').innerHTML = opts(['Treadmill', 'Outdoor walk or run', 'Stairmaster', 'Bike', 'Elliptical', 'Rower', 'Other']);
+    $('c-speed').innerHTML = '<option value="">Pick one</option>' + opts(Array.from({ length: 24 }, (_, i) => ((i + 1) / 2).toFixed(1)));
+    $('c-level').innerHTML = '<option value="">Pick one</option>' + opts(Array.from({ length: 20 }, (_, i) => String(i + 1)));
+    $('c-machine').onchange = () => {
+      const bySpeed = /Treadmill|Outdoor/.test($('c-machine').value);
+      $('c-speed-box').hidden = !bySpeed; $('c-level-box').hidden = bySpeed;
+      if (bySpeed) $('c-level').value = ''; else $('c-speed').value = '';
+      refresh();
+    };
+    $('h-cre').onclick = () => { state.creatine = !state.creatine; $('h-cre').setAttribute('aria-pressed', state.creatine); refresh(); };
     document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
       state.tab = b.dataset.tab;
       document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-selected', x === b));
@@ -399,6 +435,9 @@
     $('f-preview').textContent = r(f.calories) + ' cal, ' + r(f.protein_g) + ' g protein, ' + r(f.carbs_g) + ' g carbs, ' + r(f.fat_g) + ' g fat';
   }
   function renderWater() {
+    const taken = !!state.creDays[state.date];
+    $('h-cre-note').textContent = taken ? 'Already logged for this day.' : 'Tap if you took it ' + (state.date === localISO(new Date()) ? 'today.' : 'that day.');
+    $('h-cre').disabled = taken; state.creatine = false; $('h-cre').setAttribute('aria-pressed', taken ? 'true' : 'false');
     const oz = state.water[state.date] || 0;
     $('h-water-today').textContent = oz ? 'Logged so far ' + (state.date === localISO(new Date()) ? 'today' : 'that day') + ': ' + oz + ' oz.' : 'Tap to add a bottle, or type the amount.';
   }
@@ -413,13 +452,20 @@
     }
     if (state.tab === 'habits') {
       const e = { type: 'Sleep, water, energy', date: d, water: $('h-water').value, sleep: $('h-sleep').value, energy: state.energy, hunger: state.hunger };
-      return (e.water || e.sleep || e.energy || e.hunger) ? [e] : [];
+      if (state.creatine) e.creatine = true;
+      return (e.water || e.sleep || e.energy || e.hunger || e.creatine) ? [e] : [];
+    }
+    if (state.tab === 'cardio') {
+      const e = { type: 'Cardio', date: d, cardioMachine: $('c-machine').value, cardioMin: $('c-min').value, cardioSpeed: $('c-speed').value, cardioLevel: $('c-level').value,
+        cardioIncline: $('c-inc').value, cardioCal: $('c-cal').value, cardioWhat: $('c-notes').value.trim() };
+      return e.cardioMin ? [e] : [];
     }
     return [];
   }
   function problem() {
     if (state.tab === 'weigh') { const w = +$('w-weight').value; if ($('w-weight').value && (w < 60 || w > 700)) return 'That weight looks off. Check the number.'; }
     if (state.tab === 'food' && $('f-saved').value === '' && !$('f-food').value.trim() && $('f-cal').value) return 'Add a short description of what you ate.';
+    if (state.tab === 'cardio') { const m = +$('c-min').value; if ($('c-min').value && (m < 1 || m > 600)) return 'Minutes should be between 1 and 600.'; }
     return '';
   }
 
@@ -433,7 +479,7 @@
     else if ($('msg').dataset.kind === 'check') { $('msg').textContent = ''; $('msg').className = 'msg'; $('msg').dataset.kind = ''; }
     $('save').textContent = state.tab === 'workout'
       ? (n ? 'Save ' + n + (n === 1 ? ' set' : ' sets') : 'Enter reps to save')
-      : { weigh: 'Save weigh-in', food: 'Save food', habits: 'Save' }[state.tab];
+      : { weigh: 'Save weigh-in', food: 'Save food', habits: 'Save', cardio: (n ? 'Save cardio' : 'Enter minutes to save') }[state.tab];
   }
   async function save() {
     const work = state.tab === 'workout' ? workoutEntries() : otherEntries().map((entry) => ({ entry }));
@@ -456,7 +502,8 @@
       saveDraft();
     } else if (state.tab === 'weigh') { $('w-last').textContent = 'Saved: ' + $('w-weight').value + ' lb on ' + shortDate(state.date) + '.'; $('w-weight').value = ''; }
     else if (state.tab === 'food') { ['f-food', 'f-cal', 'f-pro', 'f-carb', 'f-fat', 'f-na'].forEach((id) => $(id).value = ''); $('f-saved').value = ''; $('f-serv').value = 1; $('f-saved').onchange(); }
-    else { state.water[state.date] = (state.water[state.date] || 0) + (+$('h-water').value || 0); ['h-water', 'h-sleep'].forEach((id) => $(id).value = ''); state.energy = state.hunger = ''; document.querySelectorAll('.scale .chip').forEach((x) => x.setAttribute('aria-pressed', 'false')); renderWater(); }
+    else if (state.tab === 'cardio') { ['c-min', 'c-inc', 'c-cal', 'c-notes'].forEach((id) => $(id).value = ''); $('c-speed').value = ''; $('c-level').value = ''; }
+    else { if (state.creatine) state.creDays[state.date] = true; state.water[state.date] = (state.water[state.date] || 0) + (+$('h-water').value || 0); ['h-water', 'h-sleep'].forEach((id) => $(id).value = ''); state.energy = state.hunger = ''; document.querySelectorAll('.scale .chip').forEach((x) => x.setAttribute('aria-pressed', 'false')); renderWater(); }
     const skipped = (res.skipped || []).length;
     $('msg').textContent = 'Saved' + (state.tab === 'workout' ? ' ' + n + (n === 1 ? ' set' : ' sets') : '') + '. It shows on your tracker now.' + (skipped ? ' ' + skipped + ' could not be saved.' : '');
     $('msg').className = 'msg ok'; $('msg').dataset.kind = 'ok';
