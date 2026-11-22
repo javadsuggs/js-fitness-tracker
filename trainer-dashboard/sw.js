@@ -1,0 +1,1 @@
+importScripts('../clients/sw.js');
