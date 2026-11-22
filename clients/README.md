@@ -18,3 +18,7 @@
 - `sw.js` (and `../trainer-dashboard/sw.js`): offline helper. Tries the network first, falls back to the last copy saved on the phone. Never touches saves. Not used on Javad's personal page.
 - `icons/`: app icons and link preview images. Rebuild with `make_icons.py` if the look changes.
 - To publish a change to pages or feeds, nothing extra is needed: the helper always fetches fresh copies when online. If `sw.js` itself changes, bump `CACHE` (for example `tracker-v2`).
+
+## Data layer
+
+- `data.js`: the only place pages load and save data (`TrackerData.listClients`, `getClient`, `loadClient`, `saveEntries`). Used by c.html, log.html and the trainer dashboard. Today it reads clients.json and each client's Google Sheet feed. When the database is ready, only this file changes; the pages stay the same.

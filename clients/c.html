@@ -21,6 +21,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/client-32.png">
 <link rel="apple-touch-icon" href="icons/client-apple-180.png">
 <script src="pwa.js" data-app="client" data-after="client-title" defer></script>
+<script src="data.js"></script>
 <style>
   :root {
     --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -1953,35 +1954,26 @@ window.__startPage = function () {
   const fail = (msg) => { boot.innerHTML = msg; };
   const slug = new URLSearchParams(location.search).get('c');
   if (!slug) return fail('No client chosen. Open this page from your trainer\'s roster, or add <b>?c=yourname</b> to the link.');
-  let entry;
-  try {
-    const list = await (await fetch('clients.json', { cache: 'no-store' })).json();
-    entry = list.find((x) => x.slug === slug);
-  } catch (e) { return fail('Could not load the client list.'); }
+  let entry, feed;
+  try { entry = await TrackerData.getClient(slug); } catch (e) { return fail('Could not load the client list.'); }
   if (!entry) return fail('No tracker found for <b>' + slug.replace(/[<>&]/g, '') + '</b>. Check the link with your trainer.');
-  let feed;
   try {
     boot.textContent = 'Loading ' + entry.name + '\'s data\u2026';
-    const slow = setTimeout(() => { boot.textContent = 'Still loading. The data sheet can take up to 20 seconds to wake up\u2026'; }, 8000);
-    const ctl = window.AbortController ? new AbortController() : null;
-    const stop = setTimeout(() => ctl && ctl.abort(), 45000);
-    try {
-      const r = await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now(), ctl ? { signal: ctl.signal } : {});
-      feed = await r.json();
-    } finally { clearTimeout(slow); clearTimeout(stop); }
-  } catch (e) { return fail('Could not reach <b>' + entry.name + '</b>\'s data sheet. <a href="" style="color:#4fd1a5">Tap to try again</a>.<br><span style="font-size:12.5px">Details: ' + String(e && (e.name + ' ' + e.message)).replace(/[<>&]/g, '') + '</span>'); }
-  if (!feed || !feed.data) return fail('The data sheet answered, but not in the expected format.');
+    feed = await TrackerData.loadClient(entry, { onSlow: () => { boot.textContent = 'Still loading. The data sheet can take up to 20 seconds to wake up\u2026'; } });
+  } catch (e) {
+    if (e.kind === 'format') return fail('The data sheet answered, but not in the expected format.');
+    return fail('Could not reach <b>' + entry.name + '</b>\'s data sheet. <a href="" style="color:#4fd1a5">Tap to try again</a>.<br><span style="font-size:12.5px">Details: ' + String(e.detail || e.message).replace(/[<>&]/g, '') + '</span>');
+  }
   if (!window.d3) return fail('Could not load the chart library. If you use a content blocker, allow cdnjs.cloudflare.com, then <a href="" style="color:#4fd1a5">tap to try again</a>.');
-  window.__CFG__ = feed.settings || {};
+  window.__CFG__ = feed.settings;
   window.__DATA__ = feed.data;
   window.__SNAPSHOT__ = 'live from the logging sheet';
-  const name = (feed.settings && feed.settings.name) || entry.name || 'Client';
+  const name = feed.settings.name || entry.name || 'Client';
   document.title = name + "'s Fitness Tracker";
   boot.remove(); root.hidden = false;
   document.getElementById('client-title').textContent = name + "'s Fitness Tracker";
-  const formUrl = (feed.settings && feed.settings.form_url) || entry.form;
-  // Sheets on script v2.2 or later take entries from the app's own log screen. Older sheets keep using the Google Form.
-  const appLog = feed.can_log && /^https:\/\/script\.google\.com\//.test(entry.feed);
+  const formUrl = feed.formUrl;
+  const appLog = feed.canLog;
   if (appLog || formUrl) {
     const a = document.createElement('a'); a.className = 'log-btn'; a.textContent = '+ Log something';
     if (appLog) a.href = 'log.html?c=' + encodeURIComponent(slug);

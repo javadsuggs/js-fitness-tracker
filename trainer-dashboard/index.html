@@ -22,6 +22,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../clients/icons/trainer-32.png">
 <link rel="apple-touch-icon" href="../clients/icons/trainer-apple-180.png">
 <script src="../clients/pwa.js" data-app="trainer" data-after="dash-sub" defer></script>
+<script src="../clients/data.js"></script>
 <meta property="og:url" content="https://javadsuggs.github.io/js-fitness-tracker/trainer-dashboard/">
 <style>
   :root { --bg: #121417; --panel: #1a1d21; --panel2: #16191d; --line: #2a2f35; --fg: #e8eaed; --muted: #9aa1a9; --ok: #4fd1a5; --warn: #f2c36b; --bad: #f07a8c; --blue: #6ea8ff; --orange: #f2a65a; }
@@ -117,15 +118,14 @@
   const todayISO = d3.timeFormat('%Y-%m-%d')(new Date());
 
   let clients = [];
-  try { clients = await (await fetch(CLIENTS + 'clients.json', { cache: 'no-store' })).json(); } catch (e) {}
+  try { clients = await TrackerData.listClients(); } catch (e) {}
   if (!clients.length) { $('groups').innerHTML = '<div class="empty">No clients yet.</div>'; $('rows').innerHTML = ''; return; }
 
   // Load every feed once, then compute each client's stats.
   const stats = new Map();
   await Promise.all(clients.map(async (c) => {
     try {
-      const feedUrl = /^https?:/.test(c.feed) ? c.feed : CLIENTS + c.feed;
-      const f = await (await fetch(feedUrl + (feedUrl.includes('?') ? '&' : '?') + 't=' + Date.now())).json();
+      const f = await TrackerData.loadClient(c);
       stats.set(c.slug, compute(c, f));
     } catch (e) { stats.set(c.slug, { error: true }); }
   }));

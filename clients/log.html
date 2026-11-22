@@ -21,6 +21,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/client-32.png">
 <link rel="apple-touch-icon" href="icons/client-apple-180.png">
 <script src="pwa.js" data-app="client" data-after="sub" data-tip="no" defer></script>
+<script src="data.js"></script>
 <style>
   :root {
     --bg: #121417; --panel: #1b1e23; --panel2: #23272d; --line: #2c3038; --fg: #eceef1; --muted: #9aa1ab;
@@ -208,25 +209,19 @@
   async function boot() {
     if (!slug) return fail('No client chosen. Open this page from your tracker.');
     $('back').href = 'c.html?c=' + encodeURIComponent(slug);
-    let list;
-    try { list = await (await fetch('clients.json', { cache: 'no-store' })).json(); } catch (e) { return fail('Could not load the client list. Check your signal and reload.'); }
-    const entry = list.find((x) => x.slug === slug);
+    let entry, feed;
+    try { entry = await TrackerData.getClient(slug); } catch (e) { return fail('Could not load the client list. Check your signal and reload.'); }
     if (!entry) return fail('No tracker found for this link. Check it with your trainer.');
     state.entry = entry;
-    let feed;
     $('sub').textContent = 'Loading your program\u2026';
-    const slow = setTimeout(() => { $('sub').textContent = 'Still loading. The data sheet can take up to 20 seconds to wake up\u2026'; }, 8000);
-    const ctl = window.AbortController ? new AbortController() : null;
-    const stop = setTimeout(() => ctl && ctl.abort(), 45000);
-    try { feed = await (await fetch(entry.feed + (entry.feed.includes('?') ? '&' : '?') + 't=' + Date.now(), ctl ? { signal: ctl.signal } : {})).json(); }
-    catch (e) { return fail('Could not reach your data sheet. <a href="">Tap to try again</a>.<br><small>Details: ' + esc(e && (e.name + ' ' + e.message)) + '</small>'); }
-    finally { clearTimeout(slow); clearTimeout(stop); }
+    try { feed = await TrackerData.loadClient(entry, { onSlow: () => { $('sub').textContent = 'Still loading. The data sheet can take up to 20 seconds to wake up\u2026'; } }); }
+    catch (e) { return fail(e.kind === 'format' ? 'Your data sheet answered, but not in the expected format.' : 'Could not reach your data sheet. <a href="">Tap to try again</a>.<br><small>Details: ' + esc(e.detail || e.message) + '</small>'); }
     state.feed = feed;
-    const name = (feed.settings && feed.settings.name) || entry.name;
+    const name = feed.settings.name || entry.name;
     document.title = 'Log: ' + name;
     $('title').textContent = name + "'s log";
-    const formUrl = feed.settings && feed.settings.form_url;
-    if (!feed.can_log || !/^https:\/\/script\.google\.com\//.test(entry.feed)) {
+    const formUrl = feed.settings.form_url;
+    if (!feed.canLog) {
       return fail(formUrl ? 'Your tracker logs through your form for now. <a href="' + esc(formUrl) + '">Open your logging form</a>.' : 'Logging is not set up for this tracker yet. Ask your trainer.');
     }
     if (formUrl) { $('more-link').href = formUrl; $('more').hidden = false; }
@@ -445,11 +440,7 @@
     if (!work.length || state.busy) return;
     state.busy = true; $('save').disabled = true; $('save').textContent = 'Saving...';
     $('msg').textContent = ''; $('msg').className = 'msg';
-    let res;
-    try {
-      const r = await fetch(state.entry.feed, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ entries: work.map((w) => w.entry) }) });
-      res = await r.json();
-    } catch (e) { res = { ok: false, error: 'Not saved. Check your signal and tap Save again.' }; }
+    const res = await TrackerData.saveEntries(state.entry, work.map((w) => w.entry));
     state.busy = false;
     if (!res || !res.ok) {
       $('msg').textContent = (res && res.error) || 'Not saved. Try again.'; $('msg').className = 'msg bad'; $('msg').dataset.kind = 'server';
