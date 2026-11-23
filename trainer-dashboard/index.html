@@ -195,7 +195,7 @@
       days: avg((x) => x.loggedDays),
     };
   }
-  const kpi = (l, v, unit) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v == null ? '—' : v}${unit && v != null ? `<small>${unit}</small>` : ''}</div></div>`;
+  const kpi = (l, v, unit) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v == null ? '–' : v}${unit && v != null ? `<small>${unit}</small>` : ''}</div></div>`;
   function renderLocations() {
     const box = $('locs'); box.innerHTML = '';
     for (const l of locations) {
@@ -205,7 +205,7 @@
       const trs = [...new Set(cs.map(TR))].sort();
       const rows = trs.map((t) => {
         const T = summarize(cs.filter((c) => TR(c) === t).map((c) => stats.get(c.slug)).filter((x) => x && !x.error));
-        return `<tr><td>${esc(t)}</td><td class="n">${T.n}</td><td class="n">${T.toGoal == null ? '—' : pct(T.toGoal) + '%'}</td><td class="n">${T.pro == null ? '—' : pct(T.pro) + '%'}</td><td class="n">${T.days == null ? '—' : fmt1(T.days)}</td></tr>`;
+        return `<tr><td>${esc(t)}</td><td class="n">${T.n}</td><td class="n">${T.toGoal == null ? '–' : pct(T.toGoal) + '%'}</td><td class="n">${T.pro == null ? '–' : pct(T.pro) + '%'}</td><td class="n">${T.days == null ? '–' : fmt1(T.days)}</td></tr>`;
       }).join('');
       const card = document.createElement('div');
       card.className = 'grp loc' + (lSel.value === l ? ' sel' : '');
@@ -257,7 +257,7 @@
       const prog = avg((x) => x.toGoal);
       const proPct = avg((x) => (x.proAvg != null && x.proT ? x.proAvg / x.proT : null));
       const calPct = avg((x) => (x.calAvg != null && x.calT ? x.calAvg / x.calT : null));
-      const k = (l, v, unit) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v == null ? '—' : v}${unit && v != null ? `<small>${unit}</small>` : ''}</div></div>`;
+      const k = (l, v, unit) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v == null ? '–' : v}${unit && v != null ? `<small>${unit}</small>` : ''}</div></div>`;
       card.innerHTML = `<h3><span class="dot" style="background:${GOALS[gk].color}"></span>${GOALS[gk].label}</h3>
         <p class="n">${list.length} client${list.length === 1 ? '' : 's'}</p>
         <div class="kpis">
@@ -287,11 +287,11 @@
       tr.innerHTML = `<td><b>${esc(x.name)}</b>${c.demo ? '<span class="demo">SAMPLE</span>' : ''}</td>
         <td class="tcol"${t !== ALL ? ' hidden' : ''}>${esc(TR(c))}</td>
         <td><span class="tag ${x.gk}">${GOALS[x.gk].label}</span></td>
-        <td class="n">${x.start ? fmt1(x.start.lb) : '—'}</td><td class="n">${x.now ? fmt1(x.now.lb) : '—'}</td><td class="n">${x.goal ? fmt1(x.goal) : '—'}</td>
-        <td class="n"><span class="${good(x.change, x.gk)}">${x.change == null ? '—' : sign(x.change)}</span></td>
-        <td class="n">${x.pace == null ? '—' : sign(x.pace)}</td>
-        <td class="n">${x.toGoal == null ? '—' : Math.round(x.toGoal * 100) + '%'}</td>
-        <td class="n">${x.proAvg == null ? '—' : fmt0(x.proAvg) + (x.proT ? ' / ' + fmt0(x.proT) : '') + ' g'}</td>
+        <td class="n">${x.start ? fmt1(x.start.lb) : '–'}</td><td class="n">${x.now ? fmt1(x.now.lb) : '–'}</td><td class="n">${x.goal ? fmt1(x.goal) : '–'}</td>
+        <td class="n"><span class="${good(x.change, x.gk)}">${x.change == null ? '–' : sign(x.change)}</span></td>
+        <td class="n">${x.pace == null ? '–' : sign(x.pace)}</td>
+        <td class="n">${x.toGoal == null ? '–' : Math.round(x.toGoal * 100) + '%'}</td>
+        <td class="n">${x.proAvg == null ? '–' : fmt0(x.proAvg) + (x.proT ? ' / ' + fmt0(x.proT) : '') + ' g'}</td>
         <td class="n">${x.workouts}</td><td>${flag}</td>`;
       tr.addEventListener('click', () => { cSel.value = c.slug; open(c.slug); });
       tb.append(tr);
