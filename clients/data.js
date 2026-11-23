@@ -8,6 +8,7 @@
   TrackerData.loadClient(entry, opts)  -> { settings, data, summary, canLog, formUrl, features }
                                           opts.onSlow(): called once if loading takes over 8 seconds
   TrackerData.saveEntries(entry, list) -> { ok, saved, skipped, error }
+  TrackerData.leaderboard(entry, opts)  -> { groups: { cut, bulk, maintain }, me, failed, location }
   Errors thrown carry .kind: 'list' | 'network' | 'format', and .detail for the technical reason.
 */
 (function () {
@@ -77,6 +78,30 @@
       });
     },
     loadClient: function (entry, opts) { return backend.loadClient(entry, opts); },
+    // Gym leaderboard for this client's location. Needs leaderboard.js.
+    // opts.mine: this client's already-loaded data, so it is not fetched twice.
+    // -> { groups: { cut, bulk, maintain }, me, failed, location }
+    leaderboard: function (entry, opts) {
+      opts = opts || {};
+      return this.listClients().then(function (list) {
+        var peers = list.filter(function (c) {
+          return (c.location || '') === (entry.location || '') && (c.leaderboard || c.demo || c.slug === entry.slug);
+        });
+        return Promise.all(peers.map(function (c) {
+          var load = c.slug === entry.slug && opts.mine ? Promise.resolve(opts.mine) : backend.loadClient(c);
+          return load.then(function (f) { return { c: c, f: f }; }).catch(function () { return null; });
+        })).then(function (res) {
+          var ok = res.filter(Boolean);
+          var board = window.Leaderboard.build(ok.map(function (x) {
+            return { slug: x.c.slug, name: x.f.settings.name || x.c.name, goal: x.f.settings.goal_type || x.c.goal, data: x.f.data,
+              sample: !!x.c.demo, optIn: !!(x.c.leaderboard || x.c.demo) };
+          }), entry.slug);
+          board.failed = res.length - ok.length;
+          board.location = entry.location || '';
+          return board;
+        });
+      });
+    },
     saveEntries: function (entry, entries) { return backend.saveEntries(entry, entries); }
   };
 })();

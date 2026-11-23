@@ -22,3 +22,9 @@
 ## Data layer
 
 - `data.js`: the only place pages load and save data (`TrackerData.listClients`, `getClient`, `loadClient`, `saveEntries`). Used by c.html, log.html and the trainer dashboard. Today it reads clients.json and each client's Google Sheet feed. When the database is ready, only this file changes; the pages stay the same.
+
+## Leaderboard
+
+- `leaderboard.js`: scoring shared by the tracker's Leaderboard card and the trainer dashboard. Percent of starting weight only; first name and last initial; joins after 14 days and 3 weigh-ins; fat loss and muscle gain capped at 1% of starting weight per week; maintaining = % of weigh-ins within 2% of start. Same rules as the database's `leaderboard()` in the tethrfit repo (tested to give identical rankings).
+- Who is shown: clients with `"leaderboard": true` in clients.json (their OK to be shown), plus SAMPLE clients during the pilot. Grouped by location.
+- The tracker loads the board only when the card is opened, so pages stay fast.

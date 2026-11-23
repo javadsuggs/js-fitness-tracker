@@ -21,6 +21,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/client-32.png">
 <link rel="apple-touch-icon" href="icons/client-apple-180.png">
 <script src="pwa.js" data-app="client" data-after="client-title" defer></script>
+<script src="leaderboard.js"></script>
 <script src="data.js"></script>
 <style>
   :root {
@@ -122,6 +123,15 @@
   .wt .empty-msg { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); padding: var(--cds-pad-lg); border: 1px dashed var(--color-border-line); border-radius: var(--cds-radius); text-align: center; }
   .wt .nut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-lg); }
   .wt .sub { border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md); background: var(--color-bg); }
+  .wt ol.lb { list-style: none; margin: 0 0 var(--cds-gap-md); padding: 0; }
+  .wt ol.lb li { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-top: 1px solid var(--color-border-line); font-variant-numeric: tabular-nums; }
+  .wt ol.lb li.me { background: color-mix(in srgb, var(--color-ok) 14%, transparent); border-radius: 8px; border-top-color: transparent; }
+  .wt .lb-place { width: 34px; flex: none; color: var(--color-fg-muted); }
+  .wt .lb-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .wt .lb-score { flex: none; font-weight: 700; }
+  .wt .lb-you { font-size: 12px; font-weight: 700; color: var(--color-bg); background: var(--color-ok); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+  .wt .lb-tag { font-size: 11px; color: var(--color-fg-muted); border: 1px solid var(--color-border-line); border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+  .wt .lb-me { margin: 0 0 var(--cds-gap-md); }
   .wt .sub h3, .wt .ch-title { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-sm); }
   .wt .meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-md); }
   .wt .meter-bar { height: 6px; border-radius: 3px; background: var(--color-border-line); margin-top: var(--cds-gap-xs); overflow: hidden; }
@@ -340,6 +350,14 @@
     </div>
     <div class="chart" data-draw="chart" data-source="weigh-ins weight-avg"></div>
     <div class="legend"><span class="w">Weight</span><span class="avg7">7-day average</span><span class="pace" style="--sw: var(--cds-chart-reference)">2 lb/week minimum</span></div>
+    </div>
+  </details>
+
+  <details class="card sec" id="leaderboard">
+    <summary><h2>Leaderboard</h2><span class="peek" id="lb-peek">Your gym, by goal</span></summary>
+    <div class="sec-body">
+    <p class="note">Ranked by percent of starting weight, never pounds, so every body size competes fairly. Fat loss counts weight lost, muscle gain counts weight gained, and maintaining counts weigh-ins within 2% of your start. Credit stops at 1% of body weight per week, so steady progress wins. Only clients who agreed are shown, by first name and last initial. You join after 14 days and 3 weigh-ins.</p>
+    <div id="lb-body"><p class="note">Loading the leaderboard…</p></div>
     </div>
   </details>
 
@@ -1968,6 +1986,7 @@ window.__startPage = function () {
   }
   if (!window.d3) return fail('Could not load the chart library. If you use a content blocker, allow cdnjs.cloudflare.com, then <a href="" style="color:#4fd1a5">tap to try again</a>.');
   window.__CFG__ = feed.settings;
+  window.__LB__ = { entry: entry, feed: feed };
   window.__DATA__ = feed.data;
   window.__SNAPSHOT__ = 'live from the logging sheet';
   const name = feed.settings.name || entry.name || 'Client';
@@ -2003,6 +2022,55 @@ window.__startPage = function () {
     const send = () => window.parent.postMessage({ type: 'tracker-height', h: document.documentElement.scrollHeight }, '*');
     new ResizeObserver(send).observe(document.body); send();
   }
+})();
+</script>
+<script>
+// Leaderboard: loads when the card is first opened, so the page itself stays fast.
+(function () {
+  const card = document.getElementById('leaderboard');
+  if (!card) return;
+  let started = false;
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function render(b) {
+    const L = window.Leaderboard, body = document.getElementById('lb-body'), peek = document.getElementById('lb-peek');
+    const me = b.me, html = [];
+    const label = (k) => L.GOALS.find((g) => g.key === k).label;
+    if (me && me.optIn && me.eligible) {
+      const n = b.groups[me.goal].length, mine = b.groups[me.goal].find((x) => x.isMe);
+      html.push('<p class="lb-me"><b>You are ' + L.ordinal(mine.place) + ' of ' + n + '</b> in ' + label(me.goal) + ', at ' + L.fmt(mine.score) + '.</p>');
+      peek.textContent = L.ordinal(mine.place) + ' of ' + n + ' in ' + label(me.goal);
+    } else if (me && me.optIn) {
+      html.push('<p class="lb-me">' + esc(me.note || 'Not on the board yet.') + '</p>');
+      peek.textContent = 'You join soon';
+    } else {
+      html.push('<p class="lb-me">You are not on the leaderboard. Ask your trainer if you would like to be.</p>');
+      peek.textContent = 'Not on the board';
+    }
+    let any = false;
+    L.GOALS.forEach((g) => {
+      const rows = b.groups[g.key];
+      if (!rows.length) return;
+      any = true;
+      const top = rows.slice(0, 10);
+      const mine = rows.find((x) => x.isMe);
+      if (mine && !top.includes(mine)) top.push(mine);
+      html.push('<h3 class="ch-title">' + g.label + '</h3><ol class="lb">' + top.map((x) =>
+        '<li' + (x.isMe ? ' class="me"' : '') + '><span class="lb-place">' + L.ordinal(x.place) + '</span><span class="lb-name">' + esc(x.name) +
+        (x.isMe ? '<span class="lb-you">You</span>' : '') + (x.sample ? '<span class="lb-tag">SAMPLE</span>' : '') +
+        '</span><span class="lb-score">' + L.fmt(x.score) + '</span></li>').join('') + '</ol>');
+    });
+    if (!any) html.push('<p class="note">No one at this gym has enough weigh-ins yet. Check back soon.</p>');
+    if (b.failed) html.push('<p class="note">' + b.failed + ' tracker' + (b.failed === 1 ? '' : 's') + ' could not be reached, so ' + (b.failed === 1 ? 'it is' : 'they are') + ' missing for now.</p>');
+    body.innerHTML = html.join('');
+  }
+  card.addEventListener('toggle', () => {
+    if (!card.open || started || !window.__LB__) return;
+    started = true;
+    TrackerData.leaderboard(window.__LB__.entry, { mine: window.__LB__.feed }).then(render).catch(() => {
+      started = false;
+      document.getElementById('lb-body').innerHTML = '<p class="note">Could not load the leaderboard. Close and reopen this card to try again.</p>';
+    });
+  });
 })();
 </script>
 </body>

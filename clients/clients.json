@@ -4,7 +4,8 @@
   "name": "Javad",
   "location": "Elite Tech. - Clinton",
   "trainer": "Quinlen",
-  "feed": "https://script.google.com/macros/s/AKfycbyqcNcnDkUa9lzS-7AVKOZpseMS1zFbZMzdRd8pLrg2XKC65Ude_ezW_beA2qhgIy4cqw/exec"
+  "feed": "https://script.google.com/macros/s/AKfycbyqcNcnDkUa9lzS-7AVKOZpseMS1zFbZMzdRd8pLrg2XKC65Ude_ezW_beA2qhgIy4cqw/exec",
+  "leaderboard": true
  },
  {
   "slug": "marcus",

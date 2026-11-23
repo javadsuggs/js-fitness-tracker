@@ -22,6 +22,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../clients/icons/trainer-32.png">
 <link rel="apple-touch-icon" href="../clients/icons/trainer-apple-180.png">
 <script src="../clients/pwa.js" data-app="trainer" data-after="dash-sub" defer></script>
+<script src="../clients/leaderboard.js"></script>
 <script src="../clients/data.js"></script>
 <meta property="og:url" content="https://javadsuggs.github.io/js-fitness-tracker/trainer-dashboard/">
 <style>
@@ -41,6 +42,11 @@
   .grp h3 { margin: 0 0 2px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
   .grp h3 .dot { width: 10px; height: 10px; border-radius: 50%; }
   .grp .n { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; }
+  ol.lb { list-style: none; margin: 0; padding: 0; font-variant-numeric: tabular-nums; }
+  ol.lb li { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  ol.lb .p { width: 34px; color: var(--muted); flex: none; }
+  ol.lb .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  ol.lb .sc { font-weight: 700; flex: none; }
   .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
   .kpi .l { color: var(--muted); font-size: 11.5px; }
   .kpi .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -91,6 +97,10 @@
   <div class="groups" id="groups"><div class="empty">Loading…</div></div>
   <p class="note">Averages use each client's own targets. Progress to goal compares start weight, current weight and goal weight. Calories and protein average the last 7 full days, so today counts once it's over. Workouts and days logged cover the last 7 days.</p>
 
+  <h2 id="lb-title">Leaderboard</h2>
+  <div class="groups" id="lb"><div class="empty">Loading…</div></div>
+  <p class="note" id="lb-note">The same leaderboard clients see on their trackers: percent of starting weight, capped at 1% a week, for clients who agreed. Clients join after 14 days and 3 weigh-ins.</p>
+
   <h2>All clients</h2>
   <div class="tbl-wrap">
     <table>
@@ -122,10 +132,11 @@
   if (!clients.length) { $('groups').innerHTML = '<div class="empty">No clients yet.</div>'; $('rows').innerHTML = ''; return; }
 
   // Load every feed once, then compute each client's stats.
-  const stats = new Map();
+  const stats = new Map(), feeds = new Map();
   await Promise.all(clients.map(async (c) => {
     try {
       const f = await TrackerData.loadClient(c);
+      feeds.set(c.slug, f);
       stats.set(c.slug, compute(c, f));
     } catch (e) { stats.set(c.slug, { error: true }); }
   }));
@@ -261,6 +272,7 @@
       g.append(card);
     }
     if (!g.children.length) g.innerHTML = '<div class="empty">No client data yet.</div>';
+    renderLeaderboard(l);
     // table
     const tb = $('rows'); tb.innerHTML = '';
     const order = { cut: 0, bulk: 1, maintain: 2 };
@@ -286,6 +298,29 @@
     }
     const keep = params.get('c');
     if (keep && mine.some((c) => c.slug === keep)) { cSel.value = keep; open(keep, true); } else { $('viewer').hidden = true; }
+  }
+
+  // Leaderboard for the chosen location (all trainers there), from the feeds already loaded above.
+  function renderLeaderboard(l) {
+    const box = $('lb'); box.innerHTML = '';
+    $('lb-title').textContent = 'Leaderboard' + (l !== ALL ? ' · ' + l : ' · All locations');
+    const here = clients.filter((c) => (l === ALL || LOC(c) === l) && feeds.has(c.slug));
+    const board = Leaderboard.build(here.map((c) => {
+      const f = feeds.get(c.slug);
+      return { slug: c.slug, name: f.settings.name || c.name, goal: f.settings.goal_type || c.goal, data: f.data, sample: !!c.demo, optIn: !!(c.leaderboard || c.demo) };
+    }), null);
+    const off = here.filter((c) => !(c.leaderboard || c.demo)).length;
+    for (const g of Leaderboard.GOALS) {
+      const rows = board.groups[g.key];
+      if (!rows.length) continue;
+      const card = document.createElement('div'); card.className = 'grp';
+      card.innerHTML = `<h3><span class="dot" style="background:${GOALS[g.key].color}"></span>${g.label}</h3><p class="n">${rows.length} on the board</p>
+        <ol class="lb">${rows.slice(0, 10).map((x) => `<li><span class="p">${Leaderboard.ordinal(x.place)}</span><span class="nm">${esc(x.name)}${x.sample ? '<span class="demo">SAMPLE</span>' : ''}</span><span class="sc">${Leaderboard.fmt(x.score)}</span></li>`).join('')}</ol>`;
+      box.append(card);
+    }
+    if (!box.children.length) box.innerHTML = '<div class="empty">No one has enough weigh-ins yet.</div>';
+    $('lb-note').textContent = 'The same leaderboard clients see on their trackers: percent of starting weight, capped at 1% a week, for clients who agreed. Clients join after 14 days and 3 weigh-ins.' +
+      (off ? ' ' + off + ' client' + (off === 1 ? ' has' : 's have') + ' not agreed to be shown.' : '');
   }
 
   function open(slug, quiet) {
