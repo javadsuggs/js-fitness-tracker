@@ -49,6 +49,16 @@
   };
   window.addEventListener('error', function (e) { if (document.getElementById('boot')) window.__bootErr((e.message || 'script error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
 </script>
+<script>
+// Google Sheets can turn a typed time like "8:30 PM" into "Sat Dec 30 1899 20:30:00 GMT-0500". Show it as 8:30 PM.
+function niceTime(t) {
+  t = String(t == null ? '' : t).trim();
+  const m = t.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\s*GMT/);
+  if (!m) return t;
+  let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return h + ':' + m[2] + ' ' + ap;
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" onerror="window.__bootErr('Could not load the chart library (d3). Check your connection or content blocker.')"></script>
 </head>
 <body>
@@ -1186,7 +1196,7 @@ window.__startPage = function () {
       const tr = document.createElement('tr');
       tr.dataset.key = r.date;
       const cells = [
-        [fmtRowDay(r.date), ''], [r.machine, 'hide-sm'], [r.time, 'hide-sm'], [n1(r.weight_lb), 'n'], [n1(r.muscle_lb), 'n'],
+        [fmtRowDay(r.date), ''], [r.machine, 'hide-sm'], [niceTime(r.time), 'hide-sm'], [n1(r.weight_lb), 'n'], [n1(r.muscle_lb), 'n'],
         [n1(r.fat_mass_lb), 'n'], [n1(r.body_fat_pct), 'n'], [r.visceral_fat, 'n'],
       ];
       for (const [t, cls] of cells) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
@@ -1203,7 +1213,7 @@ window.__startPage = function () {
       const tr = document.createElement('tr');
       tr.dataset.key = r.date;
       const cells = [
-        [fmtRowDay(r.date) + (r.time ? `, ${r.time}` : ''), ''], [n1(r.waist_in), 'n'], [n1(r.hips_in), 'n'], [n1(r.chest_in), 'n'], [n1(r.shoulders_in), 'n'], [n1(r.neck_in), 'n'],
+        [fmtRowDay(r.date) + (niceTime(r.time) ? `, ${niceTime(r.time)}` : ''), ''], [n1(r.waist_in), 'n'], [n1(r.hips_in), 'n'], [n1(r.chest_in), 'n'], [n1(r.shoulders_in), 'n'], [n1(r.neck_in), 'n'],
         [lr(r.arm_l_in, r.arm_r_in), 'n'], [lr(r.thigh_l_in, r.thigh_r_in), 'n'], [lr(r.calf_l_in, r.calf_r_in), 'n'],
       ];
       for (const [t, cls] of cells) { const td = document.createElement('td'); td.textContent = t; if (cls) td.className = cls; tr.append(td); }
